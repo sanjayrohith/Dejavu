@@ -1,0 +1,62 @@
+{
+  "name": "dejavu",
+  "version": "0.0.0",
+  "description": "Repository-scoped memory and handoffs for coding agents.",
+  "type": "module",
+  "license": "MIT",
+  "author": "coey",
+  "homepage": "https://dejavu.coey.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acoyfellow/dejavu"
+  },
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "dejavu": "./src/cli.ts"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "SECURITY.md",
+    "docs/ROADMAP.md",
+    "docs/shared-memory.md",
+    "docs/shared-memory-implementation-contract.md",
+    "docs/shared-security-review.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "bun test ./test",
+    "typecheck": "tsc --noEmit",
+    "cli": "bun run src/cli.ts",
+    "mcp": "bun run src/mcp.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "keywords": [
+    "agent",
+    "memory",
+    "ai",
+    "llm",
+    "local-first",
+    "mcp",
+    "sqlite",
+    "zettelkasten"
+  ]
+}
