@@ -1,0 +1,24 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Marketing build output
+marketing/.astro/
+marketing/dist/
+marketing/node_modules/
+
+# Local research workspaces and generated previews
+thermo-mind-monorepo/
+tmp/
+pnpm-lock.yaml
+
+# Generated evaluation prompts and raw model output; summarized decisions stay tracked
+eval/next-agent/prompts/
+eval/next-agent/prompts-cutoff/
+eval/next-agent/results/
+eval/next-agent/real/
+
+# Local experiment run artifacts; summarized RESULT.md receipts stay tracked
+experiments/**/evidence/
+experiments/**/.guardrail/
