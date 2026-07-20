@@ -63,6 +63,8 @@ export type {
 
 export { defaultDbPath } from "./storage.ts";
 export { VERSION } from "./version.ts";
+export { SharedDejavu } from "./shared-client/index.ts";
+export type { SharedDejavuOptions, SharedRememberOptions, SharedHandoffOptions } from "./shared-client/index.ts";
 export type {
   SharedMemoryEvent,
   SharedDeletePayload,
