@@ -1,0 +1,9 @@
+{
+  "name": "dejavu-shared-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --ip 127.0.0.1 --port 8790",
+    "deploy": "echo 'Set DEJAVU_SHARED_TOKEN and choose your account, then run wrangler deploy explicitly.'"
+  }
+}

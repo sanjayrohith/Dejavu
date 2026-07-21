@@ -1,0 +1,17 @@
+# Deployment disabled by default. Security review must happen before choosing
+# personal or employee/AX hosting, identity, Access policy, and routes.
+name = "dejavu-shared-server"
+main = "src/worker.ts"
+compatibility_date = "2025-05-01"
+workers_dev = false
+
+[[durable_objects.bindings]]
+name = "MEMORY"
+class_name = "MemoryServer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MemoryServer"]
+
+[dev]
+ip = "127.0.0.1"
