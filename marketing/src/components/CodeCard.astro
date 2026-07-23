@@ -1,0 +1,8 @@
+---
+interface Props { label: string; code: string }
+const { label, code } = Astro.props;
+---
+<div class="border border-brass/15 rounded-sm bg-steel/30 shadow-card overflow-hidden mb-5">
+  <div class="border-b border-brass/10 px-5 py-3 bg-void-deep/50 font-mono text-[10px] tracking-[0.2em] uppercase text-brass-light">{label}</div>
+  <pre class="font-mono text-[12px] leading-relaxed text-chrome-dark p-5 overflow-x-auto"><code>{code}</code></pre>
+</div>
