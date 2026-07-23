@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dejavu",
+  "compatibility_date": "2026-04-26",
+  "account_id": "bfcb6ac5b3ceaf42a09607f6f7925823",
+  // Pure static-asset Worker. No fetch handler, no script. The Worker
+  // just serves files out of dist/ which Astro produces on build.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  },
+  // Custom domain. The DNS record at dejavu.coey.dev already points to
+  // Cloudflare; this binds the Worker to that hostname.
+  "routes": [
+    { "pattern": "dejavu.coey.dev", "custom_domain": true }
+  ]
+}
