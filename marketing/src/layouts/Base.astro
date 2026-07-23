@@ -1,0 +1,94 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+}
+
+const {
+  title,
+  description = "Cross-session memory for agents. Four verbs over SQLite + FTS5, exposed via a 4-tool MCP server.",
+  image = "/meta.jpg",
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? "https://dejavu.coey.dev");
+const imageURL = new URL(image, canonicalURL);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={imageURL} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content={canonicalURL} />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={imageURL} />
+
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Spectral+SC:wght@300;400;600;700&family=Spectral:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&display=swap"
+      rel="stylesheet"
+    />
+
+    <slot name="head" />
+  </head>
+  <body class="m-0 relative min-h-screen">
+    <header class="sticky top-0 z-20 backdrop-blur-md backdrop-saturate-50 bg-void/95 border-b border-brass/10 shadow-[0_1px_0_rgba(201,169,97,0.1)]">
+      <div class="flex justify-between items-center gap-3 px-4 sm:px-6 py-3 sm:py-4 max-w-[1100px] mx-auto">
+        <a href="/" class="font-mono font-bold uppercase tracking-[0.32em] text-[11px] hover:text-brass transition-colors">
+          dejavu
+        </a>
+        <nav class="flex items-center gap-x-5 sm:gap-7 text-[12px] text-chrome-dark font-mono tracking-[0.1em] uppercase">
+          <a href="#verbs" class="hover:text-brass transition-colors">Verbs</a>
+          <a href="#chain" class="hover:text-brass transition-colors hidden sm:inline">Chain</a>
+          <a href="#install" class="hover:text-brass transition-colors">Install</a>
+          <a
+            href="https://github.com/acoyfellow/dejavu"
+            target="_blank"
+            rel="noreferrer"
+            class="hover:text-brass transition-colors"
+          >
+            GitHub
+          </a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="relative z-10 max-w-[1100px] mx-auto px-4 sm:px-6 pb-24">
+      <slot />
+    </main>
+
+    <!-- Background imagery: orb on top, connected at bottom, both fading into the void -->
+    <div class="absolute top-0 left-0 right-0 h-[80vh] bg-cover bg-center bg-no-repeat opacity-60 -z-10 pointer-events-none" style="background-image: url('/orb.jpg');"></div>
+    <div class="absolute top-[60vh] left-0 right-0 h-[300px] bg-gradient-to-b from-transparent to-void -z-10 pointer-events-none"></div>
+
+    <div class="absolute bottom-0 left-0 right-0 h-[60vh] bg-cover bg-center bg-no-repeat opacity-50 -z-10 pointer-events-none" style="background-image: url('/connected.jpg');"></div>
+    <div class="absolute bottom-[50vh] left-0 right-0 h-[200px] bg-gradient-to-t from-transparent to-void -z-10 pointer-events-none"></div>
+
+    <footer class="relative z-10 border-t border-brass/10 mt-16 py-8 px-6">
+      <div class="max-w-[1100px] mx-auto flex items-center justify-between gap-4 text-[11px] font-mono uppercase tracking-[0.2em] text-chrome-dark/60">
+        <span>v0.1.0 &middot; MIT</span>
+        <div class="flex items-center gap-5">
+          <a href="https://github.com/acoyfellow/dejavu" target="_blank" rel="noreferrer" class="hover:text-brass transition-colors">GitHub</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  @import "../styles/global.css";
+</style>

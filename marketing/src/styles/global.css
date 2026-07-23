@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0a0a0a;
+  --color-void-deep: #050505;
+  --color-steel: #1a1a1a;
+  --color-steel-light: #2a2a2a;
+  --color-chrome: #e8e8e8;
+  --color-chrome-dark: #b8b8b8;
+  --color-brass: #c9a961;
+  --color-brass-dark: #9b7e3c;
+  --color-brass-light: #d4bc87;
+
+  --font-family-serif: "Spectral", Georgia, serif;
+  --font-family-serif-sc: "Spectral SC", serif;
+  --font-family-mono: "JetBrains Mono", monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font-family-serif);
+  background: var(--color-void);
+  color: var(--color-chrome);
+  line-height: 1.6;
+  letter-spacing: 0.01em;
+}
+
+/* Texture overlay — subtle scanlines + warm/cool radial blooms.
+   Sits behind everything; gives the page an imperfect, instrument-panel feel. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.02) 2px, rgba(255, 255, 255, 0.02) 4px),
+    radial-gradient(circle at 30% 20%, rgba(201, 169, 97, 0.03), transparent 50%),
+    radial-gradient(circle at 70% 80%, rgba(232, 232, 232, 0.02), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Code syntax tokens for inline manual highlighting */
+.code-block .cmd { color: #8ab4f8; }
+.code-block .flag { color: var(--color-brass); }
+.code-block .string { color: #9ece6a; }
+.code-block .var { color: var(--color-brass-light); }
+.code-block .comment { color: var(--color-chrome-dark); opacity: 0.6; }
+.code-block .keyword { color: #c678dd; }
+.code-block .fn { color: var(--color-brass-light); }
+
+/* Layered shadows — these give cards/buttons their pressed-into-the-page weight */
+.shadow-card {
+  box-shadow:
+    inset 0 1px 0 rgba(201, 169, 97, 0.08),
+    0 2px 0 var(--color-void-deep),
+    0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.shadow-hero {
+  box-shadow:
+    inset 0 1px 0 rgba(201, 169, 97, 0.15),
+    0 2px 0 var(--color-void-deep),
+    0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.shadow-cta {
+  box-shadow:
+    inset 0 1px 0 rgba(201, 169, 97, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 4px 0 var(--color-void-deep),
+    0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.shadow-code {
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 1px rgba(201, 169, 97, 0.05);
+}
+
+.shadow-btn {
+  box-shadow:
+    inset 0 1px 0 rgba(201, 169, 97, 0.3),
+    0 2px 0 var(--color-void-deep),
+    0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.shadow-btn:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(201, 169, 97, 0.4),
+    0 3px 0 var(--color-void-deep),
+    0 6px 20px rgba(0, 0, 0, 0.7);
+}
+
+.glow-brass {
+  box-shadow: 0 0 8px var(--color-brass);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Flow visualization — "watching a mechanism cycle"
+   Used for the recall → remember → keep → handoff diagram.
+   ═══════════════════════════════════════════════════════════ */
+
+.flow-container {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 2.5rem 0 1.5rem;
+  gap: 1rem;
+}
+
+.flow-wire {
+  position: absolute;
+  top: calc(2.5rem + 32px);
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-steel-light);
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.flow-wire::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 60px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--color-brass), var(--color-brass-light), transparent);
+  border-radius: 2px;
+  box-shadow: 0 0 12px var(--color-brass), 0 0 24px rgba(201, 169, 97, 0.4);
+  animation: data-pulse 5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes data-pulse {
+  0% { left: -60px; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: calc(100% + 60px); opacity: 0; }
+}
+
+.flow-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
