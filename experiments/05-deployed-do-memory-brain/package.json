@@ -1,0 +1,12 @@
+{
+  "name": "dejavu-experiment-05-deployed-do-memory-brain",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Experiment 05 — deployable Cloudflare Workers + Durable Object SQL prototype for Dejavu shared immediate memory, with a harness that measures deployed URL latency, read-after-write, cross-client visibility, and concurrency.",
+  "scripts": {
+    "dev": "wrangler dev --local --ip 127.0.0.1 --port 8875",
+    "run:local": "bash ./run-local.sh",
+    "run:remote": "bash ./remote-harness.sh",
+    "deploy": "echo 'Deploy is an explicit, account-mutating action. Run: wrangler deploy   (and optionally: wrangler secret put DEJAVU_EXP_ALLOW_RESET)'"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "dejavu-experiment-03-real-do-memory-brain",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Experiment 03 — real Cloudflare Workers + Durable Object SQL prototype for Dejavu shared immediate memory.",
+  "scripts": {
+    "dev": "wrangler dev --local --ip 127.0.0.1 --port 8874",
+    "run": "bash ./run.sh"
+  }
+}

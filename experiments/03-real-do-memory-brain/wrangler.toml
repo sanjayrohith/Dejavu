@@ -1,0 +1,24 @@
+name = "dejavu-real-do-memory-brain"
+main = "src/worker.ts"
+compatibility_date = "2025-05-01"
+
+# Single Durable Object class. We route every request to the same id
+# (`name = "singleton"`) so this experiment models *one* authority — the
+# same shape as experiment 01, but with a *real* Cloudflare DO + DO SQL,
+# not a Python stand-in.
+
+[[durable_objects.bindings]]
+name = "BRAIN"
+class_name = "BrainDO"
+
+# `new_sqlite_classes` is required to opt the DO into the SQL-backed
+# storage API (ctx.storage.sql). The old key-value storage API works
+# without this; the SQL API does not.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BrainDO"]
+
+# Keep `wrangler dev` strictly local — no remote CF API calls, no
+# account mutation. The harness asserts this by hitting 127.0.0.1.
+[dev]
+ip = "127.0.0.1"

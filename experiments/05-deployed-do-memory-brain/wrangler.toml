@@ -1,0 +1,38 @@
+# Experiment 05 — deployed real Cloudflare DO memory brain.
+#
+# Unique worker name so this experiment can never collide with experiment 03
+# or any other Dejavu worker in the account. If you deploy this, the resulting
+# worker URL will be:
+#   https://dejavu-exp05-deployed-do-memory-brain.<account-subdomain>.workers.dev
+#
+# Mutating commands (`wrangler deploy`, `wrangler delete`) touch your CF
+# account. Local `wrangler dev` does not. See README.md.
+
+name = "dejavu-exp05-deployed-do-memory-brain"
+main = "src/worker.ts"
+compatibility_date = "2025-05-01"
+
+# Single Durable Object class. As in experiment 03, every request is routed
+# to the same id (`idFromName("singleton")`) so the experiment models *one*
+# authority. The difference here is that the authority can also be reached
+# over the public internet via the workers.dev URL after `wrangler deploy`.
+
+[[durable_objects.bindings]]
+name = "BRAIN"
+class_name = "BrainDO"
+
+# Opt the DO class into SQL-backed storage (ctx.storage.sql).
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["BrainDO"]
+
+# This experiment exists to measure a deployed URL. It is not the public Dejavu
+# product; the Worker exposes only disposable experiment endpoints and will be
+# deleted after the remote harness completes.
+workers_dev = true
+
+# Local dev is always loopback-only — no remote CF API calls happen for
+# `wrangler dev`. Remote deploys are explicit (`wrangler deploy`) and gated
+# behind run-local.sh / remote-harness.sh by-design.
+[dev]
+ip = "127.0.0.1"
