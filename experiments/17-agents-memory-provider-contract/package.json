@@ -1,0 +1,17 @@
+{
+  "name": "dejavu-experiment-17-agents-memory-provider-contract",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bash ./run.sh",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "agents": "0.15.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260610.0",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.69.0"
+  }
+}

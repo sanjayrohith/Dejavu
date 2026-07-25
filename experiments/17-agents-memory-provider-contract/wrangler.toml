@@ -1,0 +1,12 @@
+name = "dejavu-exp17-agents-memory-provider-contract"
+main = "src/worker.ts"
+compatibility_date = "2026-06-10"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "MEMORY_AGENT"
+class_name = "MemoryAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MemoryAgent"]

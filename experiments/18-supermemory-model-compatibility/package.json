@@ -1,0 +1,14 @@
+{
+  "name": "experiment-18-supermemory-model-compatibility",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "run": "./run.sh",
+    "test": "node --test test/*.test.mjs",
+    "check": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

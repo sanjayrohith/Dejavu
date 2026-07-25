@@ -1,0 +1,7 @@
+{
+  "fixtureId": "synthetic-v1",
+  "containerTag": "exp18-synthetic-user",
+  "factToken": "ORBITAL-MANGO-741",
+  "document": "This is a synthetic profile for compatibility testing only. The synthetic user Vega's emergency verification phrase is ORBITAL-MANGO-741. Vega asks that this exact phrase be remembered for later retrieval.",
+  "query": "What is synthetic user Vega's emergency verification phrase?"
+}

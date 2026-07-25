@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-12T13:59:40.531Z",
+  "supermemory": {
+    "version": "0.0.2",
+    "artifact": "supermemory-server-darwin-arm64",
+    "sha256": "89884e8d9c431d4bc3ae3947143aa13cd56af58736740aba4b53dc1faf77dc54",
+    "checksum_verified_before_use": true
+  },
+  "provider": {
+    "name": "Ollama",
+    "version": "ollama version is 0.21.0",
+    "base_url": "http://127.0.0.1:11434"
+  },
+  "fixture": {
+    "id": "synthetic-v1",
+    "synthetic_only": true,
+    "fact_token_sha256_12": "c0a371c1fd25"
+  },
+  "bounds": {
+    "processing_timeout_ms": 420000,
+    "request_timeout_ms": 120000
+  },
+  "models": [
+    {
+      "model": "gpt-oss:20b",
+      "fresh_data_dir": true,
+      "ports": {
+        "supermemory": 18801,
+        "proxy": 18881
+      },
+      "baseline": [
+        {
+          "name": "plain",
+          "status": 200,
+          "ok": true,
+          "duration_ms": 1749,
+          "has_choices": true,
+          "finish_reason": "stop"
+        },
+        {
+          "name": "response_format",
+          "status": 200,
+          "ok": true,
+          "duration_ms": 1719,
+          "has_choices": true,
+          "finish_reason": "length"
+        },
+        {
+          "name": "tools",
+          "status": 200,
+          "ok": true,
+          "duration_ms": 1796,
+          "has_choices": true,
+          "finish_reason": "length"
+        }
+      ],
+      "processing": {
+        "done": false,
+        "add_status": 200,
+        "document_id_present": true,
+        "observed_statuses": [
+          "queued",
+          "embedding",
+          "indexing",
+          "failed"
+        ],
+        "timed_out": false
+      },
+      "extraction": {
+        "memory_count": 0,
+        "at_least_one": false,
+        "list_status": 200
+      },
+      "retrieval": {
+        "profile_exact": false,
+        "memory_only_exact": false,
+        "document_chunk_exact": true,
+        "profile_status": 200,
+        "memory_only_status": 200,
+        "document_status": 200
+      },
+      "pass": false,
+      "partial_searchable_chunks": true,
+      "duration_ms": 37479,
+      "protocol": {
+        "endpoint": "/v1/responses",
+        "initial_status": 200,
+        "followup_status": 400,
+        "followup_input_types": [
+          "message",
+          "item_reference",
+          "function_call_output"
+        ],
+        "error_type": "invalid_request_error",
+        "error_message_sanitized": "input[2]: unknown input item type: \"[REDACTED_QUOTED_VALUE]\""
+      }
+    },
+    {
+      "model": "qwen3-coder:30b",
+      "fresh_data_dir": true,
+      "ports": {
+        "supermemory": 18802,
+        "proxy": 18882
+      },
+      "baseline": [
+        {
+          "name": "plain",
+          "status": 200,
+          "ok": true,
+          "duration_ms": 224,
+          "has_choices": true,
+          "finish_reason": "stop"
+        },
+        {
+          "name": "response_format",
+          "status": 200,
+          "ok": true,
+          "duration_ms": 331,
+          "has_choices": true,
+          "finish_reason": "stop"
+        },
+        {
+          "name": "tools",
+          "status": 200,
+          "ok": true,
+          "duration_ms": 919,
+          "has_choices": true,
+          "finish_reason": "tool_calls"
+        }
+      ],
+      "processing": {
+        "done": false,
+        "add_status": 200,
+        "document_id_present": true,
+        "observed_statuses": [
+          "queued",
+          "embedding",
+          "indexing",
+          "failed"
+        ],
+        "timed_out": false
+      },
+      "extraction": {
+        "memory_count": 0,
+        "at_least_one": false,
+        "list_status": 200
+      },
+      "retrieval": {
+        "profile_exact": false,
+        "memory_only_exact": false,
+        "document_chunk_exact": true,
+        "profile_status": 200,
+        "memory_only_status": 200,
+        "document_status": 200
+      },
+      "pass": false,
+      "partial_searchable_chunks": true,
+      "duration_ms": 21794,
+      "protocol": {
+        "endpoint": "/v1/responses",
+        "initial_status": 200,
+        "followup_status": 400,
+        "followup_input_types": [
+          "message",
+          "item_reference",
+          "function_call_output"
+        ],
+        "error_type": "invalid_request_error",
+        "error_message_sanitized": "input[2]: unknown input item type: \"[REDACTED_QUOTED_VALUE]\""
+      }
+    }
+  ]
+}

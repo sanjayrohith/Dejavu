@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-12T14:13:35.613Z",
+  "supermemory": {
+    "version": "0.0.2",
+    "artifact": "supermemory-server-darwin-arm64",
+    "sha256": "89884e8d9c431d4bc3ae3947143aa13cd56af58736740aba4b53dc1faf77dc54",
+    "checksum_verified_before_use": true
+  },
+  "provider": {
+    "name": "Ollama",
+    "version": "ollama version is 0.21.0"
+  },
+  "adapter": {
+    "max_entries": 256,
+    "ttl_ms": 600000,
+    "normalization_policy": "exact first; metadata stripping only after an upstream rejection"
+  },
+  "fixture": {
+    "id": "synthetic-v1",
+    "synthetic_only": true,
+    "token_sha256_12": "c0a371c1fd25"
+  },
+  "bounds": {
+    "processing_timeout_ms": 420000,
+    "request_timeout_ms": 120000
+  },
+  "attempts": [
+    {
+      "model": "qwen3-coder:30b",
+      "variant": "exact",
+      "fresh_data_dir": true,
+      "baseline_passthrough": {
+        "chat_status": 200,
+        "responses_status": 200,
+        "ok": true
+      },
+      "processing": {
+        "done": true,
+        "add_status": 200,
+        "observed_statuses": [
+          "queued",
+          "embedding",
+          "indexing",
+          "done"
+        ],
+        "timed_out": false
+      },
+      "extraction": {
+        "memory_count": 4,
+        "at_least_one": true,
+        "list_status": 200
+      },
+      "retrieval": {
+        "profile_exact": true,
+        "memory_only_exact": true,
+        "document_chunk_exact": true,
+        "profile_status": 200,
+        "memory_only_status": 200,
+        "document_status": 200
+      },
+      "pass": true,
+      "partial": false,
+      "adapter_stats": {
+        "cached_responses": 4,
+        "expanded_references": 14,
+        "unknown_references": 0,
+        "expired_references": 0,
+        "collisions": 0,
+        "evictions": 0,
+        "entries": 15,
+        "max_entries": 256,
+        "ttl_ms": 600000,
+        "passthrough_requests": 1,
+        "variant": "exact"
+      },
+      "protocol": {
+        "responses_statuses": [
+          200,
+          200,
+          200,
+          200
+        ],
+        "followups_seen": 2,
+        "references_expanded": 14,
+        "forwarded_item_reference": false,
+        "function_call_output_forwarded": true,
+        "fail_closed_codes": [],
+        "upstream_rejected_after_expansion": false
+      }
+    }
+  ]
+}
