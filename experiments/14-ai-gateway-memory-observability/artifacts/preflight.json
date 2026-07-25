@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "readyForLive": false,
+  "checks": {
+    "accountId": true,
+    "gatewayId": true,
+    "providerKey": true,
+    "cloudflareApiToken": false,
+    "explicitLiveConsent": false,
+    "spendLimitVerified": false
+  },
+  "selected": {
+    "gatewayId": "default",
+    "model": "openai/gpt-4o-mini",
+    "endpointKind": "AI Gateway BYOK compatibility endpoint"
+  },
+  "missingForLive": [
+    "ALLOW_LIVE_INFERENCE=1",
+    "AIG_SPEND_LIMIT_VERIFIED=1 (operator attestation that this gateway has a blocking spend-limit rule)"
+  ],
+  "controlPlaneMissing": [
+    "CLOUDFLARE_API_TOKEN (standalone harness cannot reuse Wrangler's OAuth session as a bearer binding)"
+  ],
+  "secrets": {
+    "CLOUDFLARE_API_TOKEN": "unset",
+    "CF_API_TOKEN": "unset",
+    "OPENAI_API_KEY": "set"
+  },
+  "note": "No credential values are read into output. Presence is reported only."
+}

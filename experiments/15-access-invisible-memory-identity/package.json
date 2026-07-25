@@ -1,0 +1,11 @@
+{
+  "name": "dejavu-experiment-15-access-identity",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test ./test"
+  },
+  "dependencies": {
+    "jose": "^6.1.3"
+  }
+}

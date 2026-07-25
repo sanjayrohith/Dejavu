@@ -1,0 +1,11 @@
+{
+  "name": "experiment-14-ai-gateway-memory-observability",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preflight": "bun run harness.ts preflight",
+    "dry-run": "bun run harness.ts dry-run",
+    "live": "bun run harness.ts live",
+    "test": "bun test"
+  }
+}

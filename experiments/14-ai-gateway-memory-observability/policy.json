@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "allowedModels": ["openai/gpt-4o-mini"],
+  "maxOutputTokens": 48,
+  "requestTimeoutMs": 10000,
+  "maxAttempts": 1,
+  "collectLogPayload": false,
+  "requiredMetadata": ["tenant", "purpose", "trace"],
+  "purpose": "memory-extraction",
+  "requireVerifiedGatewaySpendLimit": true
+}
