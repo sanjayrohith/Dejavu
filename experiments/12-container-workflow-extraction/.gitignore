@@ -1,0 +1,5 @@
+node_modules/
+.wrangler/
+wrangler*.log
+receipt.latest.json
+worker-configuration.d.ts

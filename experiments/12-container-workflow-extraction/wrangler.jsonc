@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "experiment-12-container-workflow-extraction",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-11",
+  "workflows": [
+    {
+      "name": "experiment-12-extraction",
+      "binding": "EXTRACTION_WORKFLOW",
+      "class_name": "ExtractionWorkflow"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "EXTRACTION_CONTAINER",
+        "class_name": "ExtractionContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["ExtractionContainer"]
+    }
+  ],
+  "containers": [
+    {
+      "name": "experiment-12-bridge",
+      "class_name": "ExtractionContainer",
+      "image": "./container/Dockerfile",
+      "image_build_context": "./container",
+      "instance_type": "lite",
+      "max_instances": 1
+    }
+  ]
+}

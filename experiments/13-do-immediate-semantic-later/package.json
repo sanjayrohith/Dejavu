@@ -1,0 +1,9 @@
+{
+  "name": "dejavu-experiment-13-do-immediate-semantic-later",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test.mjs",
+    "run": "bash run.sh"
+  }
+}

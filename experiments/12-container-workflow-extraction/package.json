@@ -1,0 +1,19 @@
+{
+  "name": "experiment-12-container-workflow-extraction",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "wrangler types --config wrangler.jsonc && tsc --noEmit && node --test test/*.test.mjs",
+    "dev": "wrangler dev --config wrangler.jsonc --port 8792",
+    "dev:workflow": "wrangler dev --config wrangler.workflow.jsonc --port 8792",
+    "run": "./run.sh",
+    "types": "wrangler types --config wrangler.jsonc"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "wrangler": "4.99.0"
+  }
+}

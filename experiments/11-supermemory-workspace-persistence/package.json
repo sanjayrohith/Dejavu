@@ -1,0 +1,17 @@
+{
+  "name": "dejavu-exp11-supermemory-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "wrangler types --config wrangler.fs.jsonc && tsc --noEmit",
+    "run": "bash ./run.sh"
+  },
+  "dependencies": {
+    "@cloudflare/workspace": "0.0.0-alpha.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260610.0",
+    "typescript": "^6.0.3",
+    "wrangler": "4.99.0"
+  }
+}

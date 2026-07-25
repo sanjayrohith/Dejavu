@@ -1,0 +1,14 @@
+name = "dejavu-experiment-13-two-speed-memory"
+main = "src/worker.ts"
+compatibility_date = "2026-04-17"
+
+[[durable_objects.bindings]]
+name = "CONTINUITY"
+class_name = "ContinuityDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ContinuityDO"]
+
+[dev]
+ip = "127.0.0.1"
