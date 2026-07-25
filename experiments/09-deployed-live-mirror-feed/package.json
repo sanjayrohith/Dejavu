@@ -1,0 +1,10 @@
+{
+  "name": "dejavu-exp09-deployed-live-mirror-feed",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "local": "bash ./run-local.sh",
+    "remote": "bash ./remote-harness.sh",
+    "deploy": "echo 'explicit only: wrangler deploy'"
+  }
+}
