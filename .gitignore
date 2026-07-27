@@ -8,11 +8,6 @@ dist/
 *.db-shm
 *.db-wal
 
-# Marketing build output
-marketing/.astro/
-marketing/dist/
-marketing/node_modules/
-
 # Local research workspaces and generated previews
 thermo-mind-monorepo/
 tmp/

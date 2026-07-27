@@ -1,6 +1,6 @@
 # Loops
 
-Each "loop" is a hypothesis + a battery of tests + the findings they produced. They're the evidence base for everything the marketing page claims.
+Each "loop" is a hypothesis + a battery of tests + the findings they produced. They're the evidence base for everything Dejavu claims.
 
 Read in order:
 

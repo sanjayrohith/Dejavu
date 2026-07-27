@@ -22,11 +22,6 @@ jobs:
         run: bun run check
       - name: Shared Worker unit tests
         run: bun test shared-server/test/worker.unit.test.ts
-      - name: Build marketing site
-        working-directory: marketing
-        run: |
-          bun install --frozen-lockfile
-          bun run build
       - name: Verify publish contents
         run: |
           mkdir -p /tmp/dejavu-pack
