@@ -1,71 +1,92 @@
 <div align="center">
 
-# 🧠 Dejavu
+<br/>
 
-### Memory that lets coding agents *continue* instead of *start over*
+# 🧠 &nbsp;Dejavu
+
+<h3>Memory that lets coding agents <em>continue</em> instead of <em>start over</em></h3>
+
+<p>
+A fast, <strong>repository-scoped</strong> memory for coding agents —<br/>
+stored in one inspectable <strong>SQLite</strong> file.
+</p>
+
+<p><em>Local&nbsp;·&nbsp;Bounded&nbsp;·&nbsp;Cited&nbsp;·&nbsp;Honest about uncertainty</em></p>
+
+<br/>
 
 [![CI](https://github.com/sanjayrohith/Dejavu/actions/workflows/ci.yml/badge.svg)](https://github.com/sanjayrohith/Dejavu/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Runtime: Bun](https://img.shields.io/badge/runtime-Bun-black)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](tsconfig.json)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
-[![Local](https://img.shields.io/badge/local-production-brightgreen.svg)](#-whats-in-v010)
-[![Shared](https://img.shields.io/badge/shared_mode-preview-orange.svg)](#-shared-mode--preview)
+[![Local](https://img.shields.io/badge/local-production-brightgreen.svg)](#-what-ships-in-v010)
+[![Shared](https://img.shields.io/badge/shared_mode-preview-orange.svg)](#️-shared-mode--preview)
 
-*A fast, repository-scoped memory for coding agents — stored in one inspectable SQLite file.*
-*Local. Bounded. Cited. Honest about uncertainty.*
+<br/>
+
+<a href="#-quick-start"><b>Quick start</b></a> &nbsp;·&nbsp;
+<a href="#-agent-setup-60-seconds"><b>Agent setup</b></a> &nbsp;·&nbsp;
+<a href="#-what-ships-in-v010"><b>Features</b></a> &nbsp;·&nbsp;
+<a href="#-agent-api"><b>API</b></a> &nbsp;·&nbsp;
+<a href="#-cli"><b>CLI</b></a>
 
 </div>
 
----
+<br/>
 
-## 📖 Table of contents
+> **No account. No daemon. No embeddings required. No transcript dump into the prompt.**
+>
+> Local Dejavu is the production surface in `v0.1.0`. Shared mode is a tested preview and intentionally remains local-only until its security review is complete.
 
-- [The problem](#-the-problem)
-- [What Dejavu is](#-what-dejavu-is)
-- [How it works](#-how-it-works-the-session-loop)
-- [Architecture](#-architecture)
-- [Recall pipeline](#-recall-pipeline)
-- [Quick start](#-quick-start)
-- [Agent setup (MCP)](#-agent-setup-60-seconds)
-- [What ships in v0.1.0](#-whats-in-v010)
-- [Agent API](#-agent-api)
-- [MCP tools](#-mcp-tools)
-- [CLI](#-cli)
-- [Storage & migration](#-storage--migration)
-- [Shared mode — preview](#-shared-mode--preview)
-- [Project structure](#-project-structure)
-- [Evidence](#-evidence)
-- [Design boundaries](#-design-boundaries)
-- [License](#-license)
+<br/>
 
----
-
-## 🎯 The problem
+## 🎯 &nbsp;The problem
 
 Coding agents repeatedly lose the expensive parts of prior work:
 
-- 🧩 the **decision** — and *why* it was made;
-- ✅ the **command** that finally worked;
-- ⚠️ the **failure mode** that must not be repeated;
-- ⏭️ the **exact next step** after context compaction;
-- 👤 the user's **project-specific preference**.
+| | What gets lost |
+|:--:|:--|
+| 🧩 | the **decision** — and *why* it was made |
+| ✅ | the **command** that finally worked |
+| ⚠️ | the **failure mode** that must not be repeated |
+| ⏭️ | the **exact next step** after context compaction |
+| 👤 | the user's **project-specific preference** |
 
 A notes database is not enough. Real agent memory must appear in the **right repository**, fit inside a **context budget**, distinguish **relevance from trust**, **stop surfacing completed work**, and **expose evidence** when it fails. Those constraints shape Dejavu.
 
----
+<br/>
 
-## 💡 What Dejavu is
+## 💡 &nbsp;What Dejavu is
 
 Dejavu gives an agent a fast, **repository-scoped** memory between sessions. It stores decisions, preferences, procedures, pitfalls, facts, and work-in-progress as immutable **slips** in one inspectable **SQLite** file, indexed with **FTS5** full-text search.
 
-> **No account. No daemon. No embeddings required. No transcript dump into the prompt.**
+<table>
+<tr>
+<td width="33%" valign="top">
 
-> **Release status:** local Dejavu is the production surface in `v0.1.0`. Shared mode is a tested preview and intentionally remains local-only until its security review is complete.
+### 🏠 Local-first
+One SQLite file. No account, no daemon, no cloud dependency.
 
----
+</td>
+<td width="33%" valign="top">
 
-## 🔄 How it works: the session loop
+### 📁 Repository-scoped
+Memory shows up in the right repo — never leaked across projects.
+
+</td>
+<td width="33%" valign="top">
+
+### 📏 Budgeted & cited
+Bounded packets with kind, trust, provenance, and links.
+
+</td>
+</tr>
+</table>
+
+<br/>
+
+## 🔄 &nbsp;How it works: the session loop
 
 An agent *remembers* and leaves a *handoff* when a session ends, then *recalls* a bounded, cited packet when the next session starts — closing the loop with useful/wrong feedback.
 
@@ -86,9 +107,9 @@ flowchart LR
     A2 -->|"useful / wrong / missed feedback"| DB
 ```
 
----
+<br/>
 
-## 🏗️ Architecture
+## 🏗️ &nbsp;Architecture
 
 Three access surfaces (CLI, MCP server, library) share one core engine, which composes small deterministic modules over a single local SQLite store.
 
@@ -119,11 +140,11 @@ flowchart TB
     CTX --> STORE
 ```
 
-**Repository isolation is the foundation.** The `context` module derives a stable scope from the nearest Git repository and its normalized `origin`, so two checkouts of the same repo share memory while unrelated projects stay isolated.
+> **Repository isolation is the foundation.** The `context` module derives a stable scope from the nearest Git repository and its normalized `origin`, so two checkouts of the same repo share memory while unrelated projects stay isolated.
 
----
+<br/>
 
-## 🔎 Recall pipeline
+## 🔎 &nbsp;Recall pipeline
 
 Recall is local, deterministic, and budget-aware. It matches, follows supersession to *current* truth, deduplicates, and stops before the packet exceeds the token budget.
 
@@ -139,9 +160,9 @@ flowchart LR
     BUD -->|no| OUT["📦 context packet<br/>+ active handoff<br/>+ trace receipt"]
 ```
 
----
+<br/>
 
-## 🚀 Quick start
+## 🚀 &nbsp;Quick start
 
 Dejavu currently requires [Bun](https://bun.sh).
 
@@ -151,7 +172,10 @@ bun add github:sanjayrohith/Dejavu
 bunx github:sanjayrohith/Dejavu init
 ```
 
-Or clone it:
+<details>
+<summary><b>Prefer to clone the repo?</b></summary>
+
+<br/>
 
 ```bash
 git clone https://github.com/sanjayrohith/Dejavu
@@ -160,11 +184,13 @@ bun install
 bun run src/cli.ts init
 ```
 
+</details>
+
 `dejavu init` creates `~/.dejavu/dejavu.db` and prints MCP configuration for Claude Code, OpenCode, and Pi.
 
----
+<br/>
 
-## ⚡ Agent setup (60 seconds)
+## ⚡ &nbsp;Agent setup (60 seconds)
 
 ```jsonc
 {
@@ -179,21 +205,35 @@ bun run src/cli.ts init
 
 The tool descriptions **are** the operating contract. Dejavu does not require a `SKILL.md`, `AGENTS.md`, or a memory paragraph copied into every system prompt.
 
-At the beginning of work, an agent calls:
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**At the beginning of work:**
 
 ```text
 recall("")
 ```
 
-At the end, it calls:
+</td>
+<td width="50%" valign="top">
+
+**At the end:**
 
 ```text
-handoff({ summary: "Implemented scoped auth", next: ["run the remote smoke test"] })
+handoff({
+  summary: "Implemented scoped auth",
+  next: ["run the remote smoke test"]
+})
 ```
 
----
+</td>
+</tr>
+</table>
 
-## 📦 What ships in v0.1.0
+<br/>
+
+## 📦 &nbsp;What ships in v0.1.0
 
 ### 🗂️ Repository isolation by default
 
@@ -215,7 +255,7 @@ Every slip has exactly one kind:
 | `wip` | Current work, blockers, and next steps |
 | `note` | Safe fallback for everything else |
 
-Agents may set the kind. If they don't, Dejavu uses a conservative deterministic heuristic — **never** a hidden model call.
+> Agents may set the kind. If they don't, Dejavu uses a conservative deterministic heuristic — **never** a hidden model call.
 
 ### 📏 Bounded context packets
 
@@ -231,7 +271,7 @@ Dejavu retrieves locally, follows explicit supersession to current memory, dedup
 
 ### 🎚️ Trust is not relevance
 
-BM25 answers **“does this text match?”** — not **“is this true?”** Dejavu keeps those concepts separate:
+BM25 answers **"does this text match?"** — not **"is this true?"** Dejavu keeps those concepts separate:
 
 | Trust | Meaning |
 |---|---|
@@ -239,7 +279,7 @@ BM25 answers **“does this text match?”** — not **“is this true?”** Dej
 | `medium` | Kept, but not yet confirmed through use |
 | `high` | Kept and materially useful at least twice |
 
-Mutable facts should still be checked against live code and systems. Dejavu never labels a lexical match “authoritative.”
+> Mutable facts should still be checked against live code and systems. Dejavu never labels a lexical match "authoritative."
 
 ### 🕰️ Current truth without rewriting history
 
@@ -289,9 +329,9 @@ d.assessRecall(result.traceId, "useful");
 
 The trace stores query, scope, returned IDs, handoff ID, session, author, and timestamp — but **not** memory text or transcripts. Library callers handling sensitive queries may disable trace storage with `recordRecallTraces: false` (those calls return `traceId: null`). `dejavu eval` reports scoped evidence so retrieval changes can be evaluated against real use.
 
----
+<br/>
 
-## 🧑‍💻 Agent API
+## 🧑‍💻 &nbsp;Agent API
 
 ```ts
 import { Dejavu } from "dejavu";
@@ -318,6 +358,11 @@ d.handoff({
   next: ["update the release workflow"],
 });
 ```
+
+<details>
+<summary><b>Full method reference</b></summary>
+
+<br/>
 
 **Core lifecycle**
 
@@ -346,25 +391,34 @@ d.recallReport()
 d.forgetSession(sessionId) // current repository scope only
 ```
 
----
+</details>
 
-## 🔌 MCP tools
+<br/>
+
+## 🔌 &nbsp;MCP tools
 
 The local MCP server exposes two small groups.
 
-**Memory**
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🧠 Memory**
 
 | Tool | Purpose |
 |---|---|
-| `recall` | Scoped, budgeted retrieval plus the active handoff |
-| `remember` | Draft or keep a typed memory; optionally supersede/contradict old slips |
-| `handoff` | Leave one active continuation packet for the next session |
+| `recall` | Scoped, budgeted retrieval + active handoff |
+| `remember` | Draft/keep a typed memory; supersede or contradict |
+| `handoff` | Leave one active continuation packet |
 | `resolve_handoff` | Complete or abandon a handoff |
 | `signal` | Mark one slip used, wrong, or forgotten |
 | `link` | Relate two existing slips |
 | `assess` | Evaluate a recall receipt |
 
-**Local coordination**
+</td>
+<td width="50%" valign="top">
+
+**📬 Local coordination**
 
 | Tool | Purpose |
 |---|---|
@@ -373,11 +427,15 @@ The local MCP server exposes two small groups.
 | `read` | Mark a message read |
 | `reply` | Continue the message thread |
 
-The mailbox is intentionally *not* memory truth — it is a small local coordination channel.
+</td>
+</tr>
+</table>
 
----
+> The mailbox is intentionally *not* memory truth — it is a small local coordination channel.
 
-## 🖥️ CLI
+<br/>
+
+## 🖥️ &nbsp;CLI
 
 ```bash
 dejavu init
@@ -400,13 +458,18 @@ dejavu handoffs
 dejavu forget-session <session-id> --yes
 ```
 
-Destructive session cleanup requires `--yes` and is restricted to the current repository scope.
+> Destructive session cleanup requires `--yes` and is restricted to the current repository scope.
 
----
+<br/>
 
-## 💾 Storage & migration
+## 💾 &nbsp;Storage & migration
 
 The default database is `~/.dejavu/dejavu.db`.
+
+<details>
+<summary><b>Database tables</b></summary>
+
+<br/>
 
 | Table | Purpose |
 |---|---|
@@ -416,6 +479,8 @@ The default database is `~/.dejavu/dejavu.db`.
 | `handoffs` | Active/resolved continuation packets |
 | `recall_traces` | Retrieval receipts and assessments, without duplicated memory text |
 | `messages` | Local asynchronous agent mailbox |
+
+</details>
 
 Schema changes are additive and run automatically when Dejavu opens the database. Existing text is never rewritten during migration.
 
@@ -429,11 +494,11 @@ DEJAVU_SCOPE=global             # deliberate override; normally automatic
 DEJAVU_INCLUDE_LEGACY=1         # temporary pre-v0.1 migration aid
 ```
 
-> ⚠️ Local SQLite is plaintext. Do not store credentials, customer data, or secrets. See [`SECURITY.md`](SECURITY.md) for the supported boundary and vulnerability-reporting guidance.
+> ⚠️ **Local SQLite is plaintext.** Do not store credentials, customer data, or secrets. See [`SECURITY.md`](SECURITY.md) for the supported boundary and vulnerability-reporting guidance.
 
----
+<br/>
 
-## ☁️ Shared mode — preview
+## ☁️ &nbsp;Shared mode — preview
 
 Shared Dejavu uses Cloudflare infrastructure only: a Worker fronts **one Durable Object SQL database per memory space**, streams numbered committed changes over SSE, and clients keep rebuildable local SQLite/FTS mirrors.
 
@@ -466,9 +531,9 @@ Run the full two-client proof locally:
 
 > 🚧 **Do not deploy it yet.** Bearer-token dogfood is not a production identity system. Multi-user use still requires verified identity, revocation, content policy, audit/retention decisions, and an encryption story. The blocking review is documented in [`docs/shared-security-review.md`](docs/shared-security-review.md). See [`docs/shared-memory.md`](docs/shared-memory.md) for the protocol and [`docs/shared-memory-implementation-contract.md`](docs/shared-memory-implementation-contract.md) for invariants.
 
----
+<br/>
 
-## 🗂️ Project structure
+## 🗂️ &nbsp;Project structure
 
 ```text
 Dejavu/
@@ -492,9 +557,9 @@ Dejavu/
 └── experiments/            # Research spikes and receipts
 ```
 
----
+<br/>
 
-## 🔬 Evidence
+## 🔬 &nbsp;Evidence
 
 Run the complete local release gate:
 
@@ -502,7 +567,10 @@ Run the complete local release gate:
 bun run check
 ```
 
-It runs:
+<details>
+<summary><b>What <code>bun run check</code> runs</b></summary>
+
+<br/>
 
 ```bash
 bun test ./test
@@ -510,6 +578,8 @@ bun run typecheck
 bun run bench/recall.ts
 bun run bench:behavior
 ```
+
+</details>
 
 The repository also contains:
 
@@ -521,9 +591,9 @@ The repository also contains:
 
 > The eight-case lexical benchmark is a smoke test, not proof that memory improves agents. Recall receipts and baseline-vs-Dejavu session experiments are the path to stronger claims.
 
----
+<br/>
 
-## 🧭 Design boundaries
+## 🧭 &nbsp;Design boundaries
 
 Dejavu is deliberately:
 
@@ -534,16 +604,20 @@ Dejavu is deliberately:
 - 📏 **budgeted**, not a transcript injector;
 - 🧯 **honest about stale state**, not eventually-consistent theater.
 
-Dejavu is **not** a secrets manager, generic RAG platform, team ACL product, or replacement for source control.
+> Dejavu is **not** a secrets manager, generic RAG platform, team ACL product, or replacement for source control.
 
 The complete production/share roadmap, release gates, and next feature batch live in [`docs/ROADMAP.md`](docs/ROADMAP.md). Completed work stays checked off; hypotheses remain explicitly unshipped until an eval earns them.
 
----
+<br/>
 
-## 📄 License
+<div align="center">
+
+## 📄 &nbsp;License
 
 [MIT](LICENSE) © Sanjay Rohith
 
-<div align="center">
+<br/>
+
 <sub>Built for coding agents that should remember what already worked.</sub>
+
 </div>
