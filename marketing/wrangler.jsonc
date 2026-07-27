@@ -8,10 +8,5 @@
   "assets": {
     "directory": "./dist",
     "not_found_handling": "404-page"
-  },
-  // Custom domain. The DNS record at dejavu.coey.dev already points to
-  // Cloudflare; this binds the Worker to that hostname.
-  "routes": [
-    { "pattern": "dejavu.coey.dev", "custom_domain": true }
-  ]
+  }
 }

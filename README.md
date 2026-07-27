@@ -1,6 +1,6 @@
 # dejavu
 
-[![CI](https://github.com/acoyfellow/dejavu/actions/workflows/ci.yml/badge.svg)](https://github.com/acoyfellow/dejavu/actions/workflows/ci.yml)
+[![CI](https://github.com/sanjayrohith/Dejavu/actions/workflows/ci.yml/badge.svg)](https://github.com/sanjayrohith/Dejavu/actions/workflows/ci.yml)
 
 **Memory that lets coding agents continue instead of start over.**
 
@@ -37,14 +37,14 @@ A notes database is not enough. Memory must appear in the right repository, fit 
 Dejavu currently requires [Bun](https://bun.sh).
 
 ```bash
-bun add github:acoyfellow/dejavu
-bunx github:acoyfellow/dejavu init
+bun add github:sanjayrohith/Dejavu
+bunx github:sanjayrohith/Dejavu init
 ```
 
 Or clone it:
 
 ```bash
-git clone https://github.com/acoyfellow/dejavu
+git clone https://github.com/sanjayrohith/Dejavu
 cd dejavu
 bun install
 bun run src/cli.ts init
@@ -59,7 +59,7 @@ bun run src/cli.ts init
   "mcpServers": {
     "dejavu": {
       "command": "bunx",
-      "args": ["github:acoyfellow/dejavu", "mcp"]
+      "args": ["github:sanjayrohith/Dejavu", "mcp"]
     }
   }
 }

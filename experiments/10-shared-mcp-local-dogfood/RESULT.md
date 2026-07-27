@@ -3,8 +3,8 @@
 started: 2026-05-24T10:07:38.028Z
 finished: 2026-05-24T10:07:39.726Z
 gateway: http://127.0.0.1:8793
-mirror A: /Users/jcoeyman/cloudflare/dejavu/experiments/10-shared-mcp-local-dogfood/.tmp/a.sqlite
-mirror B: /Users/jcoeyman/cloudflare/dejavu/experiments/10-shared-mcp-local-dogfood/.tmp/b.sqlite
+mirror A: /Users/sanjayrohith/cloudflare/dejavu/experiments/10-shared-mcp-local-dogfood/.tmp/a.sqlite
+mirror B: /Users/sanjayrohith/cloudflare/dejavu/experiments/10-shared-mcp-local-dogfood/.tmp/b.sqlite
 tag: exp10-mpjm611v
 recall marker: exptenmpjm611v
 slip id: 01KSCQ8Q6MR5Y1D2S3JE985BGV

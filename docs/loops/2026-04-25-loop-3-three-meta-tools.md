@@ -183,10 +183,10 @@ The agent's full sequence on "Pick up where we left off":
 4. `execute(bash, "find . -name 'auth.ts' -o -name 'jwt.ts'")` — when it wasn't in CWD.
 5. `execute(bash, "find /tmp -name 'auth.ts'; find ~ -maxdepth 4 -name 'auth.ts'")` — broader search.
 6. `execute(bash, "pwd && ls -la scenarios/")` — orienting.
-7. `execute(bash, "cat /Users/jcoeyman/lab/src/lib/auth.ts")` — found a real `auth.ts` in a real project.
-8. `execute(bash, "cat /Users/jcoeyman/lab/src/lib/jwt.ts; ls .../lib/")` — checking if the move was already done.
-9. `execute(bash, "grep -r 'parseToken|JWT|jwt' /Users/jcoeyman/lab/src/lib/")` — verifying.
-10. `execute(bash, "cd /Users/jcoeyman/lab && npm test")` — **ran the actual test suite**.
+7. `execute(bash, "cat /Users/sanjayrohith/lab/src/lib/auth.ts")` — found a real `auth.ts` in a real project.
+8. `execute(bash, "cat /Users/sanjayrohith/lab/src/lib/jwt.ts; ls .../lib/")` — checking if the move was already done.
+9. `execute(bash, "grep -r 'parseToken|JWT|jwt' /Users/sanjayrohith/lab/src/lib/")` — verifying.
+10. `execute(bash, "cd /Users/sanjayrohith/lab && npm test")` — **ran the actual test suite**.
 
 It then concluded the handoff's "tests will fail" claim was stale because `npm test` reported 33 passing / 0 failing, and reported back to the user that the work appeared to already be complete or mismatch the current state.
 

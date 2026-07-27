@@ -10,7 +10,7 @@
 
 ## Why this program exists
 
-Supermemory makes semantic extraction, profiles, graph evolution, and hybrid search increasingly commodity. Jordan's differentiated opportunity is to dogfood how a memory engine composes with the rest of a Cloudflare-native agent system:
+Supermemory makes semantic extraction, profiles, graph evolution, and hybrid search increasingly commodity. Sanjay Rohith's differentiated opportunity is to dogfood how a memory engine composes with the rest of a Cloudflare-native agent system:
 
 - immediate operational state;
 - durable asynchronous work;

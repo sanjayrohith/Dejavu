@@ -11,7 +11,7 @@ const {
   image = "/meta.jpg",
 } = Astro.props;
 
-const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? "https://dejavu.coey.dev");
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? "https://github.com/sanjayrohith/Dejavu");
 const imageURL = new URL(image, canonicalURL);
 ---
 
@@ -56,7 +56,7 @@ const imageURL = new URL(image, canonicalURL);
           <a href="#chain" class="hover:text-brass transition-colors hidden sm:inline">Chain</a>
           <a href="#install" class="hover:text-brass transition-colors">Install</a>
           <a
-            href="https://github.com/acoyfellow/dejavu"
+            href="https://github.com/sanjayrohith/Dejavu"
             target="_blank"
             rel="noreferrer"
             class="hover:text-brass transition-colors"
@@ -82,7 +82,7 @@ const imageURL = new URL(image, canonicalURL);
       <div class="max-w-[1100px] mx-auto flex items-center justify-between gap-4 text-[11px] font-mono uppercase tracking-[0.2em] text-chrome-dark/60">
         <span>v0.1.0 &middot; MIT</span>
         <div class="flex items-center gap-5">
-          <a href="https://github.com/acoyfellow/dejavu" target="_blank" rel="noreferrer" class="hover:text-brass transition-colors">GitHub</a>
+          <a href="https://github.com/sanjayrohith/Dejavu" target="_blank" rel="noreferrer" class="hover:text-brass transition-colors">GitHub</a>
         </div>
       </div>
     </footer>

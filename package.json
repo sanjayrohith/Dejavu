@@ -4,11 +4,11 @@
   "description": "Repository-scoped memory and handoffs for coding agents.",
   "type": "module",
   "license": "MIT",
-  "author": "coey",
-  "homepage": "https://dejavu.coey.dev",
+  "author": "Sanjay Rohith",
+  "homepage": "https://github.com/sanjayrohith/Dejavu",
   "repository": {
     "type": "git",
-    "url": "https://github.com/acoyfellow/dejavu"
+    "url": "https://github.com/sanjayrohith/Dejavu"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",

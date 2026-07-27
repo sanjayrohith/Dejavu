@@ -42,7 +42,7 @@ export const datasets: Dataset[] = [
     {id:"d08",label:"noise",text:"Docs note: JSON examples use two-space indentation."},
     {id:"d09",label:"must",text:"Security invariant: Access before public Worker deploys with bindings."},
     {id:"d10",label:"useful",text:"Testing note: use Kimi first, Sonnet only for confirmation."},
-    {id:"d11",label:"harmful",text:"Old plan: release @coey/dejavu-thermo after typecheck passes."},
+    {id:"d11",label:"harmful",text:"Old plan: release @sanjayrohith/dejavu-thermo after typecheck passes."},
     {id:"d12",label:"must",text:"User requirement: decide whether these features are worthwhile for Dejavu."},
     {id:"d13",label:"must",text:"Release gate: compare current recall, rules-only, and candidate ranker."},
   ]},
@@ -68,7 +68,7 @@ export const datasets: Dataset[] = [
   ]},
   { id: "realish", query: "what should next agent know", task: "Pick 8 from a noisy project memory dump.", slips: [
     ...routine("p", 45),
-    {id:"p46",label:"must",text:"Preference: Jordan wants concise outputs and dislikes abstract jargon."},
+    {id:"p46",label:"must",text:"Preference: Sanjay Rohith wants concise outputs and dislikes abstract jargon."},
     {id:"p47",label:"must",text:"Decision: evaluate go/no-go before adding features to Dejavu."},
     {id:"p48",label:"must",text:"Security invariant: no public Worker with bindings before Access."},
     {id:"p49",label:"must",text:"Incident: wrong public dejavu package broke dogfood install."},
