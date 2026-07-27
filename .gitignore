@@ -3,6 +3,11 @@ dist/
 *.tsbuildinfo
 .DS_Store
 
+# Local dev databases
+*.db
+*.db-shm
+*.db-wal
+
 # Marketing build output
 marketing/.astro/
 marketing/dist/
