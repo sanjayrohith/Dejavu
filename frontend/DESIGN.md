@@ -41,8 +41,24 @@ Secondary metaphor, used structurally rather than decoratively: **scroll = lap**
 ## 3. Page structure (section by section)
 
 ### 3.1 Hero
-- Full-viewport section. Background: an animated SVG/canvas node graph — 15–20 nodes labeled with real slip kinds, edges drawing themselves in on mount (stroke-dashoffset animation), then idling with a slow drift/pulse.
-- Foreground: the real product line, verbatim from the README — **"Memory that lets coding agents continue instead of start over."** — plus one supporting sentence and a single primary CTA ("Get started" → install instructions, scrolls or links to docs) and a secondary CTA (GitHub).
+- Full-viewport section. The graph is **full-bleed** — absolutely positioned across
+  the entire hero, not a column beside the text. Its `viewBox` is measured from the
+  container and mapped 1:1 to CSS pixels, so it fills any space with no cropping and
+  no distortion (a fixed viewBox with `preserveAspectRatio="slice"` would clip nodes
+  at some aspect ratios).
+- Node positions are stored **normalised (0..1) in two layouts**. Scroll progress
+  through the hero lerps between them (eased `easeInOutCubic`), so the constellation
+  visibly consolidates toward the hub as you scroll — what recall does to memory —
+  and the whole graph fades to 45% as the hero leaves.
+- Layout A deliberately keeps every node in the right ~60% and the text column is
+  capped at 545px. Earlier revisions had nodes buried under the headline scrim,
+  reading as dead grey dots with invisible labels. **Check node/headline collision
+  whenever layout A changes.**
+- Foreground: the real product line, verbatim from the README — **"Memory that lets
+  coding agents continue instead of start over."** — plus one supporting sentence, a
+  primary CTA ("Get started") and a secondary CTA (GitHub), over a directional scrim
+  that keeps the copy legible. On <940px the graph drops to 45% opacity and the scrim
+  goes vertical, so it reads as atmosphere behind the copy.
 - No stock photography, no illustration of "a robot." The graph *is* the hero image.
 
 ### 3.2 The problem
@@ -94,10 +110,63 @@ Each lap should pair copy with a **real terminal snippet** (actual CLI output st
 - **Palette**: near-black base (`#0a0a0c`-ish), single saturated accent color for the graph/HUD elements. Avoid racing red as the accent specifically because it reads as "F1 cosplay" rather than "this product is precise" — lean toward an amber, cyan, or violet accent instead; final pick should get validated for dark/light contrast, not just picked by eye.
 - **Type**: monospace (e.g. JetBrains Mono / IBM Plex Mono) for anything that is literally data — CLI output, slip IDs, timestamps, trust levels. Clean sans (e.g. Inter) for narrative copy. This mirrors a real distinction in the product (typed, inspectable data vs. human-written text) rather than being an arbitrary style choice.
 - **Motif**: thin glowing connective lines / circuit-trace style borders, reused from the hero graph into card borders, section dividers, and the HUD strip — this is what makes the page feel like one system instead of a hero section bolted onto a generic body.
-- **Motion budget**: 2–3 real effects, not effects everywhere.
-  1. Hero graph draw-in + idle drift (canvas or SVG + `requestAnimationFrame`, or CSS-only if the node count stays low).
-  2. Scroll-triggered reveals via `IntersectionObserver` (one-shot, not re-triggering, not scroll-jacked).
-  3. One signature micro-interaction: hovering/tapping a hero graph node expands a small tooltip-card showing what that slip kind means, with a one-line real example (e.g. hovering a `pitfall` node shows "pitfall — a failure, sharp edge, or thing not to repeat").
+- **Motion budget**: every effect has to carry product meaning, not just move. The
+  graph runs a single `requestAnimationFrame` loop (`components/MemoryGraph.tsx`)
+  driving four layers that compose into one "living memory" system:
+
+  1. **Idle drift** — each node travels its own slow sine orbit (independent
+     amplitude, speed and phase, so nothing moves in lockstep). Edge paths are
+     recomputed every frame from live node positions, so the lattice flexes as one
+     body instead of nodes sliding under fixed lines.
+  2. **Recall sweep** — every 7.5s a ring leaves the hub and lights each node as it
+     reaches it, ordered by distance. This is the one that *means* something: it is
+     literally a scoped recall radiating through the graph.
+  2b. **Scroll morph** — nodes travel between layout A and layout B as the hero
+     scrolls (see §3.1). Edge draw-in and the travelling pulses are computed in the
+     same loop rather than by CSS keyframes, because path lengths change as the
+     layout morphs and CSS dash animations would drift out of sync.
+  3. **Pointer parallax** — nodes carry a `depth` and swing toward the cursor
+     proportionally (hub least, outer nodes most), eased with a lerp so it glides.
+     Gives the constellation dimensionality without a 3D library.
+  4. **Hover** — the signature interaction: connected edges light cyan and a card
+     shows that kind's real README definition plus a real example call.
+
+  Plus two ambient CSS loops: a dashed scanner ring rotating on the hub (24s) and a
+  breathing hub glow (6.5s), and the original edge draw-in and travelling pulses.
+
+- **Two constraints learned while building this**, both worth preserving:
+  - CSS declarations beat SVG presentation attributes, so anything the rAF loop
+    writes must not also be styled in CSS. The sweep flash uses its own dedicated
+    circle rather than sharing the hover halo's `opacity`.
+  - The node entrance animation (`scale`) and the drift transform (`translate`)
+    cannot live on the same element — CSS animation wins. Hence the outer drift
+    `<g>` wrapping the inner `.gnode`.
+
+- **The motif runs page-wide**, not just in the hero — three layers carry it down
+  the page at decreasing intensity:
+
+  1. **Ambient constellation** (`components/AmbientField.tsx`) — a fixed full-viewport
+     canvas behind every section. Points drift and link to near neighbours within
+     132px; scrolling imparts damped momentum, so the field reacts to the reader.
+     Density scales with viewport area (capped at 64 points), it pauses on
+     `visibilitychange`, and points fade near the edges so wrap-around never pops a
+     link on screen.
+  2. **Section spine nodes** (`components/SectionLink.tsx`) — each section junction is
+     a labelled node whose trace draws outward from the centre and pings once as it
+     enters view. Replaces the old plain `<hr>`, so the page itself reads as a chain
+     of linked slips.
+  3. **Scroll progress** — a thin amber-to-cyan bar under the header, keeping the
+     HUD/telemetry language consistent with the lap counter.
+
+- Scroll-triggered reveals use `IntersectionObserver` (one-shot, not re-triggering,
+  not scroll-jacked). Lists and grids stagger their children via `:nth-child`
+  delays rather than appearing as one block.
+
+- **Reveals must use `animation`, not `transition`.** A CSS transition needs a
+  previously *painted* start value; an element first revealed while off-screen may
+  never have painted one, so it snaps to the end state instead of easing. This was
+  a real, measured bug — every reveal on the page was jumping. Keyframes with
+  `both` fill hold the from-state through the delay and always play.
 - Respect `prefers-reduced-motion`: the graph should still render (static, fully drawn) with reveals appearing instantly rather than animating, for accessibility and to avoid the page being unusable for motion-sensitive visitors.
 
 ## 5. Technical approach (Next.js specifics)

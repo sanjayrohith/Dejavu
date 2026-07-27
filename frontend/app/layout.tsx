@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import AmbientField from "@/components/AmbientField";
 import "./globals.css";
 
 /* Sans for narrative copy, mono for anything that is literally data —
@@ -35,7 +36,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AmbientField />
+        {children}
+      </body>
     </html>
   );
 }

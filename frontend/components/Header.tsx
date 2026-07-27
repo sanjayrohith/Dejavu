@@ -5,12 +5,22 @@ import { REPO } from "@/lib/content";
 
 export default function Header() {
   const [stuck, setStuck] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const onScroll = () => setStuck(window.scrollY > 24);
+    const onScroll = () => {
+      const y = window.scrollY;
+      setStuck(y > 24);
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setProgress(max > 0 ? Math.min(100, (y / max) * 100) : 0);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, []);
 
   return (
@@ -35,6 +45,10 @@ export default function Header() {
           </a>
         </nav>
       </div>
+      <span
+        className="hdr__prog"
+        style={{ "--p": `${progress}%` } as React.CSSProperties}
+      />
     </header>
   );
 }

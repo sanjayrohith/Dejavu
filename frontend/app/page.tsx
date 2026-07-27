@@ -3,6 +3,7 @@ import MemoryGraph from "@/components/MemoryGraph";
 import Reveal from "@/components/Reveal";
 import Terminal from "@/components/Terminal";
 import Laps from "@/components/Laps";
+import SectionLink from "@/components/SectionLink";
 import {
   BOUNDARIES,
   INSTALL_CMDS,
@@ -21,8 +22,13 @@ export default function Page() {
       <main id="top">
         {/* ---------------- hero ---------------- */}
         <section className="hero">
-          <div className="wrap hero__grid">
-            <div>
+          <div className="hero__canvas">
+            <MemoryGraph />
+          </div>
+          <div className="hero__scrim" />
+
+          <div className="wrap hero__content">
+            <div className="hero__text">
               <p className="eyebrow">v0.1.0 — local-first agent memory</p>
               <h1>
                 Memory that lets coding agents <span>continue</span> instead of
@@ -49,12 +55,12 @@ export default function Page() {
                 <span>No transcript dump</span>
               </div>
             </div>
-
-            <MemoryGraph />
           </div>
+
+          <div className="hero__hint">hover a node — 7 slip kinds, 3 link types</div>
         </section>
 
-        <hr className="rule" />
+        <SectionLink label="01 — the problem" />
 
         {/* ---------------- problem ---------------- */}
         <section className="section" id="problem">
@@ -68,19 +74,17 @@ export default function Page() {
               </p>
             </Reveal>
 
-            <Reveal delay={90}>
-              <div className="alerts">
-                {LOSSES.map((l, i) => (
-                  <div className="alert" key={i}>
-                    <span className="alert__idx">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <span className="alert__txt">
-                      <b>{l.lead}</b> {l.rest}
-                    </span>
-                  </div>
-                ))}
-              </div>
+            <Reveal className="alerts" stagger>
+              {LOSSES.map((l, i) => (
+                <div className="alert" key={i}>
+                  <span className="alert__idx">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="alert__txt">
+                    <b>{l.lead}</b> {l.rest}
+                  </span>
+                </div>
+              ))}
             </Reveal>
 
             <Reveal delay={140}>
@@ -94,12 +98,12 @@ export default function Page() {
           </div>
         </section>
 
-        <hr className="rule" />
+        <SectionLink label="02 — how it works" />
 
         {/* ---------------- how it works: four laps ---------------- */}
         <Laps />
 
-        <hr className="rule" />
+        <SectionLink label="03 — boundaries" />
 
         {/* ---------------- boundaries ---------------- */}
         <section className="section" id="boundaries">
@@ -113,16 +117,14 @@ export default function Page() {
               </p>
             </Reveal>
 
-            <Reveal delay={90}>
-              <div className="bounds">
-                {BOUNDARIES.map((b) => (
-                  <div className="bound" key={b.is}>
-                    <div className="bound__is">Is</div>
-                    <div className="bound__t">{b.is}</div>
-                    <div className="bound__not">{b.not}</div>
-                  </div>
-                ))}
-              </div>
+            <Reveal className="bounds" stagger>
+              {BOUNDARIES.map((b) => (
+                <div className="bound" key={b.is}>
+                  <div className="bound__is">Is</div>
+                  <div className="bound__t">{b.is}</div>
+                  <div className="bound__not">{b.not}</div>
+                </div>
+              ))}
             </Reveal>
 
             <Reveal delay={130}>
@@ -136,7 +138,7 @@ export default function Page() {
           </div>
         </section>
 
-        <hr className="rule" />
+        <SectionLink label="04 — the interface" />
 
         {/* ---------------- MCP surface ---------------- */}
         <section className="section section--tight" id="mcp">
@@ -152,25 +154,23 @@ export default function Page() {
               </p>
             </Reveal>
 
-            <Reveal delay={90}>
-              <div className="alerts" style={{ marginTop: 40 }}>
-                {MCP_TOOLS.map(([name, purpose]) => (
-                  <div className="alert" key={name}>
-                    <span
-                      className="alert__idx mono"
-                      style={{ minWidth: 132, color: "var(--accent)" }}
-                    >
-                      {name}
-                    </span>
-                    <span className="alert__txt">{purpose}</span>
-                  </div>
-                ))}
-              </div>
+            <Reveal className="alerts" stagger>
+              {MCP_TOOLS.map(([name, purpose]) => (
+                <div className="alert" key={name}>
+                  <span
+                    className="alert__idx mono"
+                    style={{ minWidth: 132, color: "var(--accent)" }}
+                  >
+                    {name}
+                  </span>
+                  <span className="alert__txt">{purpose}</span>
+                </div>
+              ))}
             </Reveal>
           </div>
         </section>
 
-        <hr className="rule" />
+        <SectionLink label="05 — shared mode" />
 
         {/* ---------------- shared mode preview ---------------- */}
         <section className="section" id="shared">
@@ -185,11 +185,11 @@ export default function Page() {
                   rebuildable local SQLite/FTS mirrors.
                 </p>
 
-                <ul className="proves">
+                <Reveal as="ul" className="proves" stagger>
                   {SHARED_PROVES.map((p) => (
                     <li key={p}>{p}</li>
                   ))}
-                </ul>
+                </Reveal>
 
                 <div className="warnbox">
                   <b>Do not deploy it yet.</b> Bearer-token dogfood is not a
@@ -203,7 +203,7 @@ export default function Page() {
           </div>
         </section>
 
-        <hr className="rule" />
+        <SectionLink label="06 — get started" />
 
         {/* ---------------- install ---------------- */}
         <section className="section" id="install">

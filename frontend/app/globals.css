@@ -109,7 +109,6 @@ a {
 
 /* Grid items default to min-width:auto, so a wide <pre> would stretch its
    track instead of scrolling inside .term__body. Let the tracks shrink. */
-.hero__grid > *,
 .lap__grid > *,
 .install__grid > * {
   min-width: 0;
@@ -122,21 +121,6 @@ a {
 
 .section--tight {
   padding: 84px 0;
-}
-
-/* hairline divider with a glowing centre — the "circuit trace" motif */
-.rule {
-  height: 1px;
-  border: 0;
-  margin: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--line-strong) 18%,
-    rgba(255, 176, 32, 0.32) 50%,
-    var(--line-strong) 82%,
-    transparent
-  );
 }
 
 /* ---------------- type ---------------- */
@@ -325,20 +309,72 @@ p {
   align-items: center;
   padding: 108px 0 64px;
   position: relative;
+  overflow: hidden;
 }
 
-.hero__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
-  gap: 48px;
-  align-items: center;
-  width: 100%;
+/* the graph owns the whole hero; text sits on top of it */
+.hero__canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* keeps the headline legible over the left side of the graph */
+.hero__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      100deg,
+      rgba(8, 9, 12, 0.9) 0%,
+      rgba(8, 9, 12, 0.7) 22%,
+      rgba(8, 9, 12, 0.2) 42%,
+      transparent 58%
+    ),
+    linear-gradient(to top, rgba(8, 9, 12, 0.65), transparent 22%);
+}
+
+.hero__content {
+  position: relative;
+  z-index: 2;
+}
+
+.hero__text {
+  max-width: 545px;
+}
+
+.hero__hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 30px;
+  z-index: 2;
+  text-align: center;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 @media (max-width: 940px) {
-  .hero__grid {
-    grid-template-columns: 1fr;
-    gap: 28px;
+  /* on narrow screens the graph reads as atmosphere behind the copy */
+  .hero__canvas {
+    opacity: 0.45;
+  }
+
+  .hero__scrim {
+    background:
+      linear-gradient(
+        180deg,
+        rgba(8, 9, 12, 0.92) 0%,
+        rgba(8, 9, 12, 0.78) 55%,
+        rgba(8, 9, 12, 0.5) 100%
+      );
   }
 }
 
@@ -390,15 +426,15 @@ p {
 /* ---------------- memory graph ---------------- */
 
 .graph {
-  width: 100%;
-  position: relative;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 .graph svg {
-  width: 100%;
-  height: auto;
-  overflow: visible;
   display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .gnode {
@@ -415,8 +451,41 @@ p {
   opacity: 1;
 }
 
+/* `r` is driven per-frame by the recall sweep — transitioning it would lag. */
 .gnode__core {
-  transition: r 0.3s var(--ease), fill 0.3s var(--ease);
+  transition: fill 0.3s var(--ease);
+}
+
+/* hub scanner: a slow dashed rotation, so the graph reads as a live system.
+   Both sit at the origin of their (JS-translated) group, so fill-box centre. */
+.ghub-scan {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: spin 24s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ghub-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: glowBreathe 6.5s ease-in-out infinite;
+}
+
+@keyframes glowBreathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
 }
 
 .gnode:hover .gnode__core {
@@ -512,7 +581,7 @@ p {
   border: 1px solid var(--line-strong);
   box-shadow: 0 22px 60px -18px rgba(0, 0, 0, 0.9);
   pointer-events: none;
-  transform: translate(-50%, calc(-100% - 18px));
+  transform: translate(-50%, calc(-100% - 34px));
   animation: cardIn 0.24s var(--ease);
   backdrop-filter: blur(8px);
 }
@@ -520,7 +589,7 @@ p {
 @keyframes cardIn {
   from {
     opacity: 0;
-    transform: translate(-50%, calc(-100% - 8px));
+    transform: translate(-50%, calc(-100% - 22px));
   }
 }
 
@@ -549,29 +618,172 @@ p {
   line-height: 1.5;
 }
 
-.graph__hint {
-  margin-top: 10px;
-  text-align: center;
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  opacity: 0.75;
-}
 
 /* ---------------- reveal ---------------- */
 
+/* Keyframes, not transitions. A transition needs a previously *painted* start
+   value; an element revealed while off-screen may never have painted one, so it
+   snaps instead of easing. `both` fill holds the from-state through the delay. */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .rv {
   opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
-  transition-delay: var(--rd, 0ms);
 }
 
 .rv[data-shown="true"] {
+  animation: riseIn 0.8s var(--ease) var(--rd, 0ms) both;
+}
+
+/* staggered variant: the wrapper stays put, its children arrive in sequence */
+.rv--stagger,
+.rv--stagger[data-shown="true"] {
   opacity: 1;
-  transform: none;
+  animation: none;
+}
+
+.rv--stagger > * {
+  opacity: 0;
+}
+
+.rv--stagger[data-shown="true"] > * {
+  animation: riseIn 0.62s var(--ease) both;
+}
+
+.rv--stagger[data-shown="true"] > *:nth-child(1) { animation-delay: 40ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(2) { animation-delay: 110ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(3) { animation-delay: 180ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(4) { animation-delay: 250ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(5) { animation-delay: 320ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(6) { animation-delay: 390ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(7) { animation-delay: 460ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(8) { animation-delay: 530ms; }
+.rv--stagger[data-shown="true"] > *:nth-child(n + 9) { animation-delay: 600ms; }
+
+/* ---------------- ambient constellation ---------------- */
+
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* sits above the body glow, below the grain and all content */
+}
+
+/* ---------------- section spine node ---------------- */
+
+.slink {
+  position: relative;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slink__trace {
+  position: absolute;
+  left: 50%;
+  right: 50%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--line-strong) 20%,
+    rgba(255, 176, 32, 0.35) 50%,
+    var(--line-strong) 80%,
+    transparent
+  );
+  transition: left 1.1s var(--ease), right 1.1s var(--ease);
+}
+
+.slink[data-shown="true"] .slink__trace {
+  left: 0;
+  right: 0;
+}
+
+.slink__node {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  transform: scale(0);
+  transition: transform 0.6s var(--ease) 0.35s, box-shadow 0.6s ease 0.35s;
+}
+
+.slink[data-shown="true"] .slink__node {
+  transform: scale(1);
+  box-shadow: 0 0 14px rgba(255, 176, 32, 0.55);
+}
+
+/* one expanding ring when the node links in */
+.slink__ping {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  opacity: 0;
+}
+
+.slink[data-shown="true"] .slink__ping {
+  animation: ping 1.5s var(--ease) 0.45s;
+}
+
+@keyframes ping {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+
+.slink__label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(26px);
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity 0.7s ease 0.7s;
+  white-space: nowrap;
+}
+
+.slink[data-shown="true"] .slink__label {
+  opacity: 1;
+}
+
+@media (max-width: 620px) {
+  .slink__label {
+    display: none;
+  }
+}
+
+/* ---------------- scroll progress ---------------- */
+
+.hdr__prog {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: linear-gradient(90deg, var(--accent), var(--cool));
+  width: var(--p, 0%);
+  box-shadow: 0 0 10px rgba(255, 176, 32, 0.6);
+  transition: width 0.12s linear;
 }
 
 /* ---------------- problem section ---------------- */
@@ -1123,21 +1335,46 @@ p {
     transition-duration: 0.001ms !important;
   }
 
-  /* graph must still read as fully drawn, not half-animated */
+  /* graph must still read as fully drawn, not half-animated. The rAF loop
+     (drift, parallax, recall sweep) is never started in this mode either. */
   .gedge {
     stroke-dashoffset: 0;
   }
 
-  .gpulse {
+  .gpulse,
+  .ghub-scan {
     display: none;
+  }
+
+  .ghub-glow {
+    opacity: 1;
   }
 
   .gnode {
     opacity: 1;
   }
 
-  .rv {
+  .rv,
+  .rv--stagger > * {
     opacity: 1;
     transform: none;
+  }
+
+  /* the spine must read as fully linked, not mid-draw */
+  .slink__trace {
+    left: 0;
+    right: 0;
+  }
+
+  .slink__node {
+    transform: scale(1);
+  }
+
+  .slink__ping {
+    display: none;
+  }
+
+  .slink__label {
+    opacity: 1;
   }
 }
