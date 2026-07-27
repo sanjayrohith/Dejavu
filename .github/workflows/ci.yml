@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  release-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - name: Tests, types, and behavior evidence
+        run: bun run check
+      - name: Shared Worker unit tests
+        run: bun test shared-server/test/worker.unit.test.ts
+      - name: Build marketing site
+        working-directory: marketing
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+      - name: Verify publish contents
+        run: |
+          mkdir -p /tmp/dejavu-pack
+          bun pm pack --destination /tmp/dejavu-pack
+          test -f /tmp/dejavu-pack/dejavu-0.1.0.tgz
