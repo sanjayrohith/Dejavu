@@ -1,5 +1,5 @@
 import Header from "@/components/Header";
-import MemoryGraph from "@/components/MemoryGraph";
+import Hyperspeed from "@/components/Hyperspeed";
 import Reveal from "@/components/Reveal";
 import Terminal from "@/components/Terminal";
 import Laps from "@/components/Laps";
@@ -14,6 +14,46 @@ import {
   SHARED_PROVES,
 } from "@/lib/content";
 
+/* Module scope, not an inline literal: <Hyperspeed> keys its whole WebGL scene
+   off the identity of this object, so a fresh one each render would tear down
+   and rebuild the scene. Colours are the site tokens — amber outbound, cool
+   inbound — rather than the component's default synthwave purple. */
+const HERO_EFFECT_OPTIONS = {
+  distortion: "turbulentDistortion",
+  length: 400,
+  roadWidth: 10,
+  islandWidth: 2,
+  lanesPerRoad: 3,
+  fov: 90,
+  fovSpeedUp: 150,
+  speedUp: 2,
+  carLightsFade: 0.4,
+  totalSideLightSticks: 20,
+  lightPairsPerRoadWay: 40,
+  shoulderLinesWidthPercentage: 0.05,
+  brokenLinesWidthPercentage: 0.1,
+  brokenLinesLengthPercentage: 0.5,
+  lightStickWidth: [0.12, 0.5],
+  lightStickHeight: [1.3, 1.7],
+  movingAwaySpeed: [60, 80],
+  movingCloserSpeed: [-120, -160],
+  carLightsLength: [12, 80],
+  carLightsRadius: [0.05, 0.14],
+  carWidthPercentage: [0.3, 0.5],
+  carShiftX: [-0.8, 0.8],
+  carFloorSeparation: [0, 5],
+  colors: {
+    roadColor: 0x0a0b0e,
+    islandColor: 0x0e1015,
+    background: 0x08090c,
+    shoulderLines: 0x3a3f4a,
+    brokenLines: 0x3a3f4a,
+    leftCars: [0xffb020, 0xffc75e, 0xff8c1a],
+    rightCars: [0x56d9e8, 0x2f9fb2, 0x1c6a7d],
+    sticks: 0xffb020,
+  },
+};
+
 export default function Page() {
   return (
     <>
@@ -23,7 +63,7 @@ export default function Page() {
         {/* ---------------- hero ---------------- */}
         <section className="hero">
           <div className="hero__canvas">
-            <MemoryGraph />
+            <Hyperspeed effectOptions={HERO_EFFECT_OPTIONS} />
           </div>
           <div className="hero__scrim" />
 
@@ -56,8 +96,6 @@ export default function Page() {
               </div>
             </div>
           </div>
-
-          <div className="hero__hint">hover a node — 7 slip kinds, 3 link types</div>
         </section>
 
         <SectionLink label="01 — the problem" />

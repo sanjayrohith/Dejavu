@@ -303,23 +303,23 @@ p {
 
 /* ---------------- hero ---------------- */
 
+/* the wave field owns the whole hero; the copy sits along the bottom edge */
 .hero {
   min-height: 100svh;
   display: flex;
-  align-items: center;
-  padding: 108px 0 64px;
+  align-items: flex-end;
+  padding: 108px 0 clamp(48px, 7vh, 84px);
   position: relative;
   overflow: hidden;
 }
 
-/* the graph owns the whole hero; text sits on top of it */
 .hero__canvas {
   position: absolute;
   inset: 0;
   z-index: 0;
 }
 
-/* keeps the headline legible over the left side of the graph */
+/* bottom-weighted: the waves stay open up top, the copy stays legible below */
 .hero__scrim {
   position: absolute;
   inset: 0;
@@ -327,13 +327,18 @@ p {
   pointer-events: none;
   background:
     linear-gradient(
-      100deg,
-      rgba(8, 9, 12, 0.9) 0%,
-      rgba(8, 9, 12, 0.7) 22%,
-      rgba(8, 9, 12, 0.2) 42%,
-      transparent 58%
+      to top,
+      rgba(8, 9, 12, 0.94) 0%,
+      rgba(8, 9, 12, 0.82) 26%,
+      rgba(8, 9, 12, 0.42) 52%,
+      transparent 78%
     ),
-    linear-gradient(to top, rgba(8, 9, 12, 0.65), transparent 22%);
+    linear-gradient(
+      95deg,
+      rgba(8, 9, 12, 0.5) 0%,
+      rgba(8, 9, 12, 0.18) 34%,
+      transparent 62%
+    );
 }
 
 .hero__content {
@@ -342,38 +347,22 @@ p {
 }
 
 .hero__text {
-  max-width: 545px;
-}
-
-.hero__hint {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 30px;
-  z-index: 2;
-  text-align: center;
-  font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  opacity: 0.7;
-  pointer-events: none;
+  max-width: 620px;
 }
 
 @media (max-width: 940px) {
-  /* on narrow screens the graph reads as atmosphere behind the copy */
+  /* on narrow screens the wave field reads as atmosphere behind the copy */
   .hero__canvas {
-    opacity: 0.45;
+    opacity: 0.5;
   }
 
   .hero__scrim {
     background:
       linear-gradient(
         180deg,
-        rgba(8, 9, 12, 0.92) 0%,
-        rgba(8, 9, 12, 0.78) 55%,
-        rgba(8, 9, 12, 0.5) 100%
+        rgba(8, 9, 12, 0.72) 0%,
+        rgba(8, 9, 12, 0.82) 55%,
+        rgba(8, 9, 12, 0.94) 100%
       );
   }
 }
