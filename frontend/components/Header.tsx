@@ -44,11 +44,12 @@ export default function Header() {
             GitHub ↗
           </a>
         </nav>
+        {/* inside the pill so the bar clips to the glass capsule */}
+        <span
+          className="hdr__prog"
+          style={{ "--p": `${progress}%` } as React.CSSProperties}
+        />
       </div>
-      <span
-        className="hdr__prog"
-        style={{ "--p": `${progress}%` } as React.CSSProperties}
-      />
     </header>
   );
 }

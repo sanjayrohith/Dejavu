@@ -138,6 +138,22 @@ footer {
   text-transform: uppercase;
 }
 
+/* perspective grid: rays stay put, rungs ride the scroll */
+.wprun__ray {
+  stroke: rgba(86, 217, 232, 0.07);
+  stroke-width: 1;
+}
+
+.wprun__rung {
+  stroke: rgba(233, 234, 238, 0.2);
+  stroke-width: 1;
+}
+
+.wprun__leader {
+  stroke: rgba(233, 234, 238, 0.3);
+  stroke-width: 1;
+}
+
 /* nav readout for the waypoint you are nearest */
 .wphud {
   position: absolute;
@@ -175,6 +191,18 @@ footer {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-dim);
+}
+
+/* replayed each time the nearest waypoint changes */
+.wphud__body.wphud-swap {
+  animation: wphudSwap 0.38s var(--ease);
+}
+
+@keyframes wphudSwap {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 .wphud__ticks {
@@ -309,29 +337,65 @@ p {
 
 /* ---------------- header ---------------- */
 
+/* liquid glass: the nav floats as a translucent capsule over the road, with a
+   specular top edge and heavy backdrop blur doing the "liquid" part */
 .hdr {
   position: fixed;
-  top: 0;
+  top: 14px;
   left: 0;
   right: 0;
   z-index: 60;
-  backdrop-filter: blur(14px);
-  background: rgba(8, 9, 12, 0.68);
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.35s var(--ease), background 0.35s var(--ease);
-}
-
-.hdr[data-stuck="true"] {
-  border-bottom-color: var(--line);
-  background: rgba(8, 9, 12, 0.9);
+  pointer-events: none; /* only the capsule itself is interactive */
 }
 
 .hdr__in {
-  height: 62px;
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden; /* clips the progress bar to the capsule */
+  height: 54px;
+  width: calc(100% - 36px);
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 12px 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.02) 34%,
+    rgba(8, 9, 12, 0.3) 70%,
+    rgba(255, 255, 255, 0.05)
+  );
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 14px 40px -18px rgba(0, 0, 0, 0.8);
+  transition:
+    background 0.35s var(--ease),
+    box-shadow 0.35s var(--ease),
+    border-color 0.35s var(--ease);
+}
+
+/* scrolled: the glass deepens rather than turning into a solid bar */
+.hdr[data-stuck="true"] .hdr__in {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.03) 34%,
+    rgba(8, 9, 12, 0.55) 70%,
+    rgba(255, 255, 255, 0.06)
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 44px -16px rgba(0, 0, 0, 0.85);
 }
 
 .brand {
@@ -367,17 +431,23 @@ p {
 .hdr__nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 6px;
   font-size: 13.5px;
   color: var(--text-dim);
 }
 
+/* links are small glass pills of their own on hover */
 .hdr__nav a {
-  transition: color 0.2s;
+  padding: 7px 13px;
+  border-radius: 999px;
+  transition:
+    color 0.2s,
+    background 0.25s var(--ease);
 }
 
 .hdr__nav a:hover {
   color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 @media (max-width: 760px) {
@@ -949,7 +1019,7 @@ p {
 
 .hud {
   position: sticky;
-  top: 62px;
+  top: 80px; /* clears the floating glass capsule (14px + 54px + gap) */
   z-index: 30;
   background: rgba(8, 9, 12, 0.86);
   backdrop-filter: blur(12px);
