@@ -4,6 +4,8 @@ import { BloomEffect, EffectComposer, EffectPass, RenderPass, SMAAEffect, SMAAPr
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
+import { getScrollTravel, retainScrollTravel } from '@/lib/scrollTravel';
+
 import './Hyperspeed.css';
 
 const DEFAULT_EFFECT_OPTIONS = {
@@ -32,6 +34,15 @@ const DEFAULT_EFFECT_OPTIONS = {
   carWidthPercentage: [0.3, 0.5],
   carShiftX: [-0.8, 0.8],
   carFloorSeparation: [0, 5],
+  /* The road has no clock of its own — scrolling is the only thing that moves
+     it. scrollTravel is how far it advances per pixel scrolled (raise it to make
+     the road rush past faster for the same scroll), scrollSmoothing eases
+     discrete scroll events into continuous motion, scrollFovRate is the travel
+     rate that earns the full fovSpeedUp zoom — it tracks scrollTravel, so that
+     slowing the road does not also flatten the zoom out of existence. */
+  scrollTravel: 0.005,
+  scrollSmoothing: 12,
+  scrollFovRate: 11,
   colors: {
     roadColor: 0x080808,
     islandColor: 0x0a0a0a,
@@ -413,7 +424,14 @@ const Hyperspeed = ({ effectOptions = DEFAULT_EFFECT_OPTIONS }) => {
         this.fovTarget = options.fov;
         this.speedUpTarget = 0;
         this.speedUp = 0;
-        this.timeOffset = 0;
+
+        /* Scroll distance comes from the shared travel value so the road, the
+           ambient field and the hero waypoints cannot drift apart. pressTravel
+           is this layer's own extra distance from press-and-hold. */
+        this.travel = 0;
+        this.pressTravel = 0;
+        this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.releaseTravel = retainScrollTravel();
 
         this.tick = this.tick.bind(this);
         this.init = this.init.bind(this);
@@ -556,10 +574,23 @@ const Hyperspeed = ({ effectOptions = DEFAULT_EFFECT_OPTIONS }) => {
 
       update(delta) {
         let lerpPercentage = Math.exp(-(-60 * Math.log2(1 - 0.1)) * delta);
-        this.speedUp += lerp(this.speedUp, this.speedUpTarget, lerpPercentage, 0.00001);
-        this.timeOffset += this.speedUp * delta;
 
-        let time = this.clock.elapsedTime + this.timeOffset;
+        /* press-and-hold is another source of distance rather than a second
+           clock, so it pushes travel forward the same way scrolling does */
+        this.speedUp += lerp(this.speedUp, this.speedUpTarget, lerpPercentage, 0.00001);
+        this.pressTravel += this.speedUp * delta;
+
+        /* The shared value is already smoothed and already snaps to an exact
+           stop, so this layer only scales it into road units and adds its own
+           press-and-hold distance on top. */
+        const previous = this.travel;
+        this.travel = getScrollTravel() * this.options.scrollTravel + this.pressTravel;
+        const travelRate = Math.abs(this.travel - previous) / Math.max(delta, 1e-4);
+
+        /* the scene's whole notion of time — car positions, road markings, the
+           turbulent warp and the camera's lookAt all read off this, so a still
+           page means a still frame */
+        const time = this.travel;
 
         this.rightCarLights.update(time);
         this.leftCarLights.update(time);
@@ -567,9 +598,25 @@ const Hyperspeed = ({ effectOptions = DEFAULT_EFFECT_OPTIONS }) => {
         this.road.update(time);
 
         let updateCamera = false;
-        let fovChange = lerp(this.camera.fov, this.fovTarget, lerpPercentage);
-        if (fovChange !== 0) {
-          this.camera.fov += fovChange * delta * 6;
+        /* the zoom reads off how fast the road is actually moving, so it sits at
+           exactly the base fov whenever nothing is scrolling */
+        const rush = Math.min(travelRate / this.options.scrollFovRate, 1);
+        const fovTarget = Math.max(
+          this.fovTarget,
+          this.options.fov + (this.options.fovSpeedUp - this.options.fov) * rush
+        );
+        /* Same curve and same snap as travel, so the zoom tracks the scroll
+           tightly and stops when it does. The stock easing here approached the
+           target so slowly that the camera went on drifting for seconds after
+           the page had stopped moving. */
+        const fovGap = fovTarget - this.camera.fov;
+        if (Math.abs(fovGap) < 1e-3) {
+          if (this.camera.fov !== fovTarget) {
+            this.camera.fov = fovTarget;
+            updateCamera = true;
+          }
+        } else {
+          this.camera.fov += fovGap * (1 - Math.exp(-delta * this.options.scrollSmoothing));
           updateCamera = true;
         }
 
@@ -627,6 +674,7 @@ const Hyperspeed = ({ effectOptions = DEFAULT_EFFECT_OPTIONS }) => {
         }
 
         window.removeEventListener('resize', this.onWindowResize);
+        if (this.releaseTravel) this.releaseTravel();
         if (this.container) {
           this.container.removeEventListener('mousedown', this.onMouseDown);
           this.container.removeEventListener('mouseup', this.onMouseUp);

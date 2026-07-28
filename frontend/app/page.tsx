@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Hyperspeed from "@/components/Hyperspeed";
+import Waypoints from "@/components/Waypoints";
 import Reveal from "@/components/Reveal";
 import Terminal from "@/components/Terminal";
 import Laps from "@/components/Laps";
@@ -18,7 +19,7 @@ import {
    off the identity of this object, so a fresh one each render would tear down
    and rebuild the scene. Colours are the site tokens — amber outbound, cool
    inbound — rather than the component's default synthwave purple. */
-const HERO_EFFECT_OPTIONS = {
+const BACKDROP_EFFECT_OPTIONS = {
   distortion: "turbulentDistortion",
   length: 400,
   roadWidth: 10,
@@ -57,14 +58,21 @@ const HERO_EFFECT_OPTIONS = {
 export default function Page() {
   return (
     <>
+      {/* fixed behind the whole page — the road keeps running for the full
+          scroll, and scrolling is what drives its speed */}
+      <div className="backdrop" aria-hidden="true">
+        <Hyperspeed effectOptions={BACKDROP_EFFECT_OPTIONS} />
+      </div>
+
+      {/* the seven slip kinds as waypoints down the road — scrolling the hero
+          flies past them in turn, then the run fades out */}
+      <Waypoints />
+
       <Header />
 
       <main id="top">
         {/* ---------------- hero ---------------- */}
         <section className="hero">
-          <div className="hero__canvas">
-            <Hyperspeed effectOptions={HERO_EFFECT_OPTIONS} />
-          </div>
           <div className="hero__scrim" />
 
           <div className="wrap hero__content">

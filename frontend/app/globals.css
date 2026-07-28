@@ -82,6 +82,127 @@ footer {
   z-index: 2;
 }
 
+/* ---------------- page-wide backdrop ---------------- */
+
+/* The road is fixed so it keeps running for the whole scroll rather than
+   leaving with the hero. z-index -1 puts it above the page background but
+   under the body glow (0), the grain (1) and all content (2); pointer-events
+   stay off so everything layered above it remains clickable. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Content blocks float over the road, sheer enough that it stays legible as a
+   backdrop the whole way down the page rather than disappearing behind the
+   first section. The gaps between blocks — the .slink spines — show it
+   completely uncovered. */
+.section,
+.laps,
+.ftr {
+  background: rgba(8, 9, 12, 0.8);
+}
+
+@media (max-width: 940px) {
+  /* on narrow screens the road reads as atmosphere, not subject */
+  .backdrop {
+    opacity: 0.5;
+  }
+}
+
+/* ---------------- hero recall run ---------------- */
+
+/* Fixed, and above the content layer: the last waypoints sweep out over the
+   arriving section as the run fades, which reads as passing them rather than
+   being cut off. pointer-events off so it never intercepts a click. */
+.wprun {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.wprun__svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.wprun__label {
+  fill: var(--text-dim);
+  font-family: var(--font-mono), monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* nav readout for the waypoint you are nearest */
+.wphud {
+  position: absolute;
+  right: 34px;
+  bottom: 46px;
+  width: 268px;
+  padding: 15px 17px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgba(8, 9, 12, 0.74);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+}
+
+.wphud__top {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.wphud__idx {
+  color: var(--text-faint);
+}
+
+.wphud__kind {
+  color: var(--accent);
+}
+
+.wphud__use {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.wphud__ticks {
+  margin-top: 13px;
+  display: flex;
+  gap: 5px;
+}
+
+.wphud__ticks span {
+  height: 2px;
+  flex: 1;
+  background: var(--line-strong);
+  transition: background 0.3s var(--ease);
+}
+
+.wphud__ticks span[data-on="true"] {
+  background: var(--accent);
+}
+
+@media (max-width: 940px) {
+  /* the run would crowd the copy on a narrow screen — keep the road, drop the
+     waypoint labels and the readout */
+  .wprun__label,
+  .wphud {
+    display: none;
+  }
+}
+
 ::selection {
   background: var(--accent);
   color: #0a0a0c;
@@ -303,7 +424,8 @@ p {
 
 /* ---------------- hero ---------------- */
 
-/* the wave field owns the whole hero; the copy sits along the bottom edge */
+/* the road (see .backdrop) shows through the hero uncovered; the copy sits
+   along the bottom edge */
 .hero {
   min-height: 100svh;
   display: flex;
@@ -313,13 +435,7 @@ p {
   overflow: hidden;
 }
 
-.hero__canvas {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-/* bottom-weighted: the waves stay open up top, the copy stays legible below */
+/* bottom-weighted: the road stays open up top, the copy stays legible below */
 .hero__scrim {
   position: absolute;
   inset: 0;
@@ -351,11 +467,6 @@ p {
 }
 
 @media (max-width: 940px) {
-  /* on narrow screens the wave field reads as atmosphere behind the copy */
-  .hero__canvas {
-    opacity: 0.5;
-  }
-
   .hero__scrim {
     background:
       linear-gradient(

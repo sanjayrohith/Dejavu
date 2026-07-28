@@ -1,19 +1,26 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { getScrollTravel, retainScrollTravel } from "@/lib/scrollTravel";
 
 /**
  * Page-wide ambient constellation — the hero's memory-graph motif carried
  * behind every section at low intensity (DESIGN.md §2: one motif, reused
  * quieter, rather than several borrowed ones).
  *
- * Points drift slowly and link to near neighbours; scrolling imparts momentum,
- * so the field reacts to the reader instead of looping indifferently.
+ * Scroll is the only thing that moves this field — there is no idle drift and no
+ * loop running on its own. Hold the page still and the frame is frozen; scroll
+ * and the points travel, parallaxed by depth. Matches the road in <Hyperspeed>,
+ * so the whole backdrop advances together and stops together.
  */
 
-type Pt = { x: number; y: number; vx: number; vy: number; r: number; d: number };
+type Pt = { x: number; y: number; vx: number; r: number; d: number };
 
 const LINK_DIST = 132;
+/** px of point travel per px scrolled, before each point's depth is applied.
+ *  Kept in step with scrollTravel in <Hyperspeed> so the two backdrop layers
+ *  move at a consistent rate rather than one outrunning the other. */
+const PARALLAX = 0.16;
 
 export default function AmbientField() {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -30,8 +37,9 @@ export default function AmbientField() {
     let h = 0;
     let pts: Pt[] = [];
     let raf = 0;
-    let boost = 0;
-    let lastScroll = window.scrollY;
+    let lastTravel = getScrollTravel();
+    let needsDraw = true;
+    const release = retainScrollTravel();
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -42,6 +50,7 @@ export default function AmbientField() {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      needsDraw = true;
 
       // density scaled to viewport area, capped so phones stay cheap
       const count = Math.min(64, Math.round((w * h) / 26000));
@@ -49,16 +58,9 @@ export default function AmbientField() {
         x: Math.random() * w,
         y: Math.random() * h,
         vx: (Math.random() - 0.5) * 0.13,
-        vy: (Math.random() - 0.5) * 0.13,
         r: Math.random() * 1.5 + 0.7,
         d: Math.random() * 0.7 + 0.3, // depth → how much scroll moves it
       }));
-    };
-
-    const onScroll = () => {
-      const dy = window.scrollY - lastScroll;
-      lastScroll = window.scrollY;
-      boost = Math.max(-40, Math.min(40, boost + dy * 0.35));
     };
 
     /** fade points near the edges so wrap-around never pops a link on screen */
@@ -72,12 +74,25 @@ export default function AmbientField() {
     };
 
     const frame = () => {
-      boost *= 0.9;
+      const travel = getScrollTravel();
+      const step = travel - lastTravel;
+      lastTravel = travel;
+
+      /* Nothing moved and nothing invalidated the canvas — leave the last frame
+         on screen untouched rather than clearing and redrawing an identical one */
+      if (step === 0 && !needsDraw) {
+        raf = requestAnimationFrame(frame);
+        return;
+      }
+      needsDraw = false;
+
       ctx.clearRect(0, 0, w, h);
 
       for (const p of pts) {
-        p.x += p.vx;
-        p.y += p.vy - boost * 0.02 * p.d;
+        /* vx is reused as a per-point direction rather than a velocity, so the
+           sideways drift is also paid for in scroll distance */
+        p.x += step * p.vx * 0.6;
+        p.y -= step * PARALLAX * p.d;
         if (p.x < -20) p.x = w + 20;
         if (p.x > w + 20) p.x = -20;
         if (p.y < -20) p.y = h + 20;
@@ -128,14 +143,13 @@ export default function AmbientField() {
     resize();
     start();
     window.addEventListener("resize", resize);
-    window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       stop();
       window.removeEventListener("resize", resize);
-      window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", onVisibility);
+      release();
     };
   }, []);
 
