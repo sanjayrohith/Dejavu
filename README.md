@@ -15,7 +15,6 @@ stored in one inspectable <strong>SQLite</strong> file.
 
 <br/>
 
-[![CI](https://github.com/sanjayrohith/Dejavu/actions/workflows/ci.yml/badge.svg)](https://github.com/sanjayrohith/Dejavu/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Runtime: Bun](https://img.shields.io/badge/runtime-Bun-black)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](tsconfig.json)
