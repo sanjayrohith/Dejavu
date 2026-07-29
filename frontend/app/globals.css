@@ -53,28 +53,6 @@ body {
   overflow-x: hidden;
 }
 
-/* page-wide ambient glow + grain */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(900px 600px at 78% -8%, rgba(255, 176, 32, 0.09), transparent 60%),
-    radial-gradient(700px 500px at 8% 12%, rgba(86, 217, 232, 0.055), transparent 60%);
-}
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
 main,
 header,
 footer {
@@ -82,152 +60,240 @@ footer {
   z-index: 2;
 }
 
-/* ---------------- page-wide backdrop ---------------- */
+/* ============================================================
+   the film — a scrubbed image sequence behind the whole page
+   ============================================================ */
 
-/* The road is fixed so it keeps running for the whole scroll rather than
-   leaving with the hero. z-index -1 puts it above the page background but
-   under the body glow (0), the grain (1) and all content (2); pointer-events
-   stay off so everything layered above it remains clickable. */
-.backdrop {
+/* Fixed and at the back of the stack. Everything the page draws sits at
+   z-index 2; the film owns 0 and never takes a pointer event. */
+.film {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+  background: #07080b;
+
+  /* both written per-frame by <Film>: how hard to hold the image back so copy
+     survives on it, and how far into the warm candlelit interior we are */
+  --film-veil: 0.5;
+  --film-warm: 0;
 }
 
-/* Content blocks float over the road, sheer enough that it stays legible as a
-   backdrop the whole way down the page rather than disappearing behind the
-   first section. The gaps between blocks — the .slink spines — show it
-   completely uncovered. */
-.section,
-.laps,
-.ftr {
-  background: rgba(8, 9, 12, 0.8);
+.film__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 1.1s var(--ease);
 }
 
-@media (max-width: 940px) {
-  /* on narrow screens the road reads as atmosphere, not subject */
-  .backdrop {
-    opacity: 0.5;
+.film__canvas[data-ready="true"] {
+  opacity: 1;
+}
+
+/* act-aware wash: heavy over the bright dawn exterior, light inside where the
+   plate is already near-black and more veil would only kill the candles */
+.film__veil {
+  position: absolute;
+  inset: 0;
+  background: #06070a;
+  opacity: var(--film-veil);
+}
+
+/* static half: edge fall-off plus a bottom-weighted lift, which is what makes
+   copy legible over a sky */
+.film__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to top,
+      rgba(6, 7, 10, 0.92) 0%,
+      rgba(6, 7, 10, 0.6) 18%,
+      rgba(6, 7, 10, 0.12) 46%,
+      transparent 72%
+    ),
+    radial-gradient(125% 95% at 50% 42%, transparent 34%, rgba(4, 5, 8, 0.72) 100%);
+}
+
+/* the interior is lit by candles — let a little of that temperature bleed into
+   the page as the camera crosses the threshold */
+.film__vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    90% 70% at 50% 62%,
+    rgba(255, 176, 32, 0.16),
+    transparent 70%
+  );
+  opacity: var(--film-warm);
+}
+
+.film__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* sequence download, shown only until the coarse pass is in */
+.film__load {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  transition: opacity 0.6s var(--ease) 0.2s;
+}
+
+.film__load[data-done="true"] {
+  opacity: 0;
+}
+
+.film__load-bar {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--cool));
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.3s linear;
+}
+
+/* zero-height flow marker that pins a frame to a point in the document */
+.cue {
+  display: block;
+  height: 0;
+  overflow: hidden;
+}
+
+/* ---------------- glass panel ---------------- */
+
+/* Content rides over the film rather than covering it: a blurred slab wide
+   enough to read on, with the plate still visible around every edge. */
+.panel {
+  position: relative;
+  padding: clamp(26px, 4.2vw, 54px);
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  background: linear-gradient(
+    160deg,
+    rgba(20, 23, 31, 0.74),
+    rgba(8, 9, 12, 0.84) 62%
+  );
+  backdrop-filter: blur(26px) saturate(1.3);
+  -webkit-backdrop-filter: blur(26px) saturate(1.3);
+  box-shadow:
+    0 44px 96px -44px rgba(0, 0, 0, 0.92),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* specular top edge — the light catching the near lip of the glass */
+.panel::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.28),
+    transparent
+  );
+}
+
+.panel--quiet {
+  background: linear-gradient(
+    160deg,
+    rgba(20, 23, 31, 0.5),
+    rgba(8, 9, 12, 0.62) 62%
+  );
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 30px 70px -46px rgba(0, 0, 0, 0.85);
+}
+
+@media (max-width: 620px) {
+  .panel {
+    border-radius: 18px;
   }
 }
 
-/* ---------------- hero recall run ---------------- */
+/* ---------------- chapter beat ---------------- */
 
-/* Fixed, and above the content layer: the last waypoints sweep out over the
-   arriving section as the run fades, which reads as passing them rather than
-   being cut off. pointer-events off so it never intercepts a click. */
-.wprun {
-  position: fixed;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  will-change: opacity;
-}
-
-.wprun__svg {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-}
-
-.wprun__label {
-  fill: var(--text-dim);
-  font-family: var(--font-mono), monospace;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-/* perspective grid: rays stay put, rungs ride the scroll */
-.wprun__ray {
-  stroke: rgba(86, 217, 232, 0.07);
-  stroke-width: 1;
-}
-
-.wprun__rung {
-  stroke: rgba(233, 234, 238, 0.2);
-  stroke-width: 1;
-}
-
-.wprun__leader {
-  stroke: rgba(233, 234, 238, 0.3);
-  stroke-width: 1;
-}
-
-/* nav readout for the waypoint you are nearest */
-.wphud {
-  position: absolute;
-  right: 34px;
-  bottom: 46px;
-  width: 268px;
-  padding: 15px 17px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  background: rgba(8, 9, 12, 0.74);
-  opacity: 0;
-  transition: opacity 0.25s var(--ease);
-}
-
-.wphud__top {
+/* A full-height card over uncovered film. Opacity/transform are driven per
+   frame by <Beat>; the from-state lives here so it never flashes in first. */
+.beat {
+  min-height: 100svh;
   display: flex;
-  align-items: baseline;
-  gap: 11px;
+  align-items: center;
+  padding: 14vh 0;
+  position: relative;
+}
+
+.beat__card {
+  max-width: 810px;
+  margin: 0 auto;
+  text-align: center;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+
+.beat[data-align="left"] .beat__card {
+  margin: 0;
+  text-align: left;
+}
+
+.beat__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   font-family: var(--font-mono), monospace;
   font-size: 11px;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-}
-
-.wphud__idx {
-  color: var(--text-faint);
-}
-
-.wphud__kind {
-  color: var(--accent);
-}
-
-.wphud__use {
-  margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.5;
   color: var(--text-dim);
 }
 
-/* replayed each time the nearest waypoint changes */
-.wphud__body.wphud-swap {
-  animation: wphudSwap 0.38s var(--ease);
+.beat__n {
+  padding: 3px 9px;
+  border: 1px solid var(--accent-dim);
+  border-radius: 100px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  letter-spacing: 0.1em;
 }
 
-@keyframes wphudSwap {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
+.beat__line {
+  margin-top: 26px;
+  font-size: clamp(2.05rem, 5.1vw, 3.85rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-shadow: 0 10px 48px rgba(0, 0, 0, 0.8);
 }
 
-.wphud__ticks {
-  margin-top: 13px;
-  display: flex;
-  gap: 5px;
+.beat__sub {
+  margin: 24px auto 0;
+  max-width: 62ch;
+  color: var(--text-dim);
+  font-size: 1.06rem;
+  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.85);
 }
 
-.wphud__ticks span {
-  height: 2px;
-  flex: 1;
-  background: var(--line-strong);
-  transition: background 0.3s var(--ease);
+.beat[data-align="left"] .beat__sub {
+  margin-left: 0;
 }
 
-.wphud__ticks span[data-on="true"] {
-  background: var(--accent);
-}
-
-@media (max-width: 940px) {
-  /* the run would crowd the copy on a narrow screen — keep the road, drop the
-     waypoint labels and the readout */
-  .wprun__label,
-  .wphud {
-    display: none;
+@media (max-width: 620px) {
+  .beat {
+    min-height: 88svh;
+    padding: 10vh 0;
   }
 }
 
@@ -494,37 +560,14 @@ p {
 
 /* ---------------- hero ---------------- */
 
-/* the road (see .backdrop) shows through the hero uncovered; the copy sits
-   along the bottom edge */
+/* the film runs uncovered behind the hero — .film__vignette is the only thing
+   holding it back, and the copy sits along the lit bottom edge */
 .hero {
   min-height: 100svh;
   display: flex;
   align-items: flex-end;
-  padding: 108px 0 clamp(48px, 7vh, 84px);
+  padding: 108px 0 clamp(72px, 9vh, 110px);
   position: relative;
-  overflow: hidden;
-}
-
-/* bottom-weighted: the road stays open up top, the copy stays legible below */
-.hero__scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      to top,
-      rgba(8, 9, 12, 0.94) 0%,
-      rgba(8, 9, 12, 0.82) 26%,
-      rgba(8, 9, 12, 0.42) 52%,
-      transparent 78%
-    ),
-    linear-gradient(
-      95deg,
-      rgba(8, 9, 12, 0.5) 0%,
-      rgba(8, 9, 12, 0.18) 34%,
-      transparent 62%
-    );
 }
 
 .hero__content {
@@ -533,18 +576,54 @@ p {
 }
 
 .hero__text {
-  max-width: 620px;
+  max-width: 640px;
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+}
+
+/* the whole page is one camera move — say so once, at the top */
+.hero__scroll {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.hero__scroll-rule {
+  width: 1px;
+  height: 42px;
+  background: linear-gradient(to bottom, transparent, var(--accent));
+  transform-origin: top;
+  animation: scrollHint 2.6s var(--ease) infinite;
+}
+
+@keyframes scrollHint {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  35% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  75%,
+  100% {
+    transform: scaleY(1) translateY(42px);
+    opacity: 0;
+  }
 }
 
 @media (max-width: 940px) {
-  .hero__scrim {
-    background:
-      linear-gradient(
-        180deg,
-        rgba(8, 9, 12, 0.72) 0%,
-        rgba(8, 9, 12, 0.82) 55%,
-        rgba(8, 9, 12, 0.94) 100%
-      );
+  .hero__scroll {
+    display: none;
   }
 }
 
@@ -582,6 +661,15 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+}
+
+/* two max-content columns are wider than a phone once "no embeddings required"
+   is in one of them — stack rather than push the page sideways */
+@media (max-width: 560px) {
+  .hero__meta {
+    grid-template-columns: max-content;
+    gap: 10px;
+  }
 }
 
 .hero__meta span::before {
@@ -838,16 +926,6 @@ p {
 .rv--stagger[data-shown="true"] > *:nth-child(8) { animation-delay: 530ms; }
 .rv--stagger[data-shown="true"] > *:nth-child(n + 9) { animation-delay: 600ms; }
 
-/* ---------------- ambient constellation ---------------- */
-
-.ambient {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  /* sits above the body glow, below the grain and all content */
-}
-
 /* ---------------- section spine node ---------------- */
 
 .slink {
@@ -1017,15 +1095,25 @@ p {
   position: relative;
 }
 
+/* Floats as its own capsule so the film is uncovered on both sides of it,
+   matching the header rather than banding the page edge to edge. */
 .hud {
   position: sticky;
-  top: 80px; /* clears the floating glass capsule (14px + 54px + gap) */
+  top: 88px; /* clears the floating header capsule (14 + 54) with air to spare */
   z-index: 30;
-  background: rgba(8, 9, 12, 0.86);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  width: calc(100% - 36px);
+  max-width: 1080px;
+  margin: 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 11, 15, 0.62);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 16px 40px -22px rgba(0, 0, 0, 0.85);
 }
+
 
 .hud__in {
   display: flex;
@@ -1083,13 +1171,10 @@ p {
   }
 }
 
+/* no divider rule: each lap is already its own slab of glass, and a full-width
+   hairline would cut the film in half between them */
 .lap {
-  padding: 96px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.lap:last-child {
-  border-bottom: 0;
+  padding: 74px 0;
 }
 
 .lap__grid {
@@ -1288,8 +1373,9 @@ p {
 .bounds {
   margin-top: 46px;
   display: grid;
-  /* 330px floor lands a clean 3 x 2 at desktop width */
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  /* 330px floor lands a clean 3 x 2 at desktop width; min() lets the track give
+     way on a phone instead of pushing the page sideways */
+  grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -1410,7 +1496,7 @@ p {
   padding: 0;
   list-style: none;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
   gap: 9px 26px;
 }
 
@@ -1437,7 +1523,7 @@ p {
 .install__grid {
   margin-top: 42px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 20px;
   align-items: start;
 }
@@ -1464,6 +1550,9 @@ p {
 .ftr {
   border-top: 1px solid var(--line);
   padding: 46px 0 60px;
+  background: linear-gradient(to bottom, transparent, rgba(6, 7, 10, 0.9));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .ftr__in {
@@ -1526,6 +1615,24 @@ p {
 
   .rv,
   .rv--stagger > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* the film holds one still per act instead of scrubbing (see <Film>), so the
+     chapter cards must simply be present rather than crossfading through */
+  .beat__card {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+
+  .film__canvas {
+    opacity: 1;
+  }
+
+  .hero__scroll-rule {
+    animation: none;
     opacity: 1;
     transform: none;
   }

@@ -96,6 +96,41 @@ export const SHARED_PROVES = [
   "Token-to-space isolation in local dogfood",
 ];
 
+/**
+ * The chapter cards that sit between sections, over uncovered film. Each one
+ * restates a claim the sections then evidence — nothing here is a new promise.
+ */
+export const BEATS = [
+  {
+    id: "approach",
+    n: "01",
+    kicker: "the walk back",
+    line: "Every session starts at the gate again.",
+    sub: "The decision, the command that finally worked, the failure mode not to repeat — all of it evaporates with the context window, and the next agent pays to rediscover it.",
+  },
+  {
+    id: "door",
+    n: "02",
+    kicker: "a door, not a dump",
+    line: "Memory that opens on the right repository.",
+    sub: "Scope is a first-class key, not a tag. A slip written in one repository does not walk into the next one, and recall arrives budgeted rather than pasted.",
+  },
+  {
+    id: "threshold",
+    n: "03",
+    kicker: "cross the threshold",
+    line: "Inside, everything is still inspectable.",
+    sub: "One SQLite file. Append-only slips, explicit supersession, receipts you can assess. Nothing rewrites itself behind your back.",
+  },
+  {
+    id: "archive",
+    n: "04",
+    kicker: "what you are left holding",
+    line: "A memory you can open, read, and delete.",
+    sub: "No account, no daemon, no embeddings required, no transcript dump. Sixty seconds from install to an agent that continues.",
+  },
+] as const;
+
 export interface Lap {
   id: string;
   n: string;
@@ -103,11 +138,14 @@ export interface Lap {
   title: string;
   body: string[];
   term: { title: string; lines: string };
+  /** film frame this lap is anchored to — see lib/film.ts */
+  cue: number;
 }
 
 export const LAPS: Lap[] = [
   {
     id: "remember",
+    cue: 108,
     n: "Lap 01",
     stage: "Remember",
     title: "Typed memory, without filing work",
@@ -128,6 +166,7 @@ export const LAPS: Lap[] = [
   },
   {
     id: "recall",
+    cue: 118,
     n: "Lap 02",
     stage: "Recall",
     title: "Bounded packets, and trust is not relevance",
@@ -149,6 +188,7 @@ export const LAPS: Lap[] = [
   },
   {
     id: "handoff",
+    cue: 126,
     n: "Lap 03",
     stage: "Handoff",
     title: "Continuation that stops when the work stops",
@@ -171,6 +211,7 @@ export const LAPS: Lap[] = [
   },
   {
     id: "verify",
+    cue: 133,
     n: "Lap 04",
     stage: "Verify",
     title: "A feedback loop you can actually measure",

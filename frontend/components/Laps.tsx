@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { LAPS, TRUST } from "@/lib/content";
 import Terminal from "./Terminal";
 import Reveal from "./Reveal";
+import Cue from "./Cue";
 
 /**
  * The four-lap core. A sticky HUD advances as each lap enters view — contained
@@ -54,34 +55,38 @@ export default function Laps() {
             refs.current[i] = el;
           }}
         >
-          <div className="wrap lap__grid">
-            <Reveal>
-              <div className="lap__n">
-                {lap.n} — {lap.stage}
-              </div>
-              <h2>{lap.title}</h2>
-              {lap.body.map((p, j) => (
-                <p className="lap__body" key={j}>
-                  {p}
-                </p>
-              ))}
-
-              {/* trust ≠ relevance belongs to the recall lap specifically */}
-              {lap.id === "recall" && (
-                <div className="trust">
-                  {TRUST.map((t) => (
-                    <div className="trust__row" key={t.level} data-t={t.level}>
-                      <span className="trust__tag">{t.level}</span>
-                      <span className="trust__desc">{t.desc}</span>
-                    </div>
-                  ))}
+          {/* each lap holds the camera a little deeper into the hall */}
+          <Cue frame={lap.cue} />
+          <div className="wrap">
+            <div className="panel lap__grid">
+              <Reveal>
+                <div className="lap__n">
+                  {lap.n} — {lap.stage}
                 </div>
-              )}
-            </Reveal>
+                <h2>{lap.title}</h2>
+                {lap.body.map((p, j) => (
+                  <p className="lap__body" key={j}>
+                    {p}
+                  </p>
+                ))}
 
-            <Reveal delay={110}>
-              <Terminal title={lap.term.title} html={lap.term.lines} />
-            </Reveal>
+                {/* trust ≠ relevance belongs to the recall lap specifically */}
+                {lap.id === "recall" && (
+                  <div className="trust">
+                    {TRUST.map((t) => (
+                      <div className="trust__row" key={t.level} data-t={t.level}>
+                        <span className="trust__tag">{t.level}</span>
+                        <span className="trust__desc">{t.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Reveal>
+
+              <Reveal delay={110}>
+                <Terminal title={lap.term.title} html={lap.term.lines} />
+              </Reveal>
+            </div>
           </div>
         </article>
       ))}

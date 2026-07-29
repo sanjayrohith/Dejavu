@@ -34,11 +34,14 @@ export default function Header() {
           <a className="hide-sm" href="#problem">
             Problem
           </a>
-          <a className="hide-sm" href="#how">
+          <a className="hide-sm" href="#how-intro">
             How it works
           </a>
           <a className="hide-sm" href="#boundaries">
             Boundaries
+          </a>
+          <a className="hide-sm" href="#install">
+            Install
           </a>
           <a href={REPO} target="_blank" rel="noreferrer">
             GitHub ↗

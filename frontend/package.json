@@ -10,11 +10,8 @@
   },
   "dependencies": {
     "next": "^15.5.4",
-    "ogl": "^1.0.11",
-    "postprocessing": "^6.39.4",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "three": "^0.185.1"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import AmbientField from "@/components/AmbientField";
+import Film from "@/components/Film";
 import "./globals.css";
 
 /* Sans for narrative copy, mono for anything that is literally data —
@@ -36,8 +36,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+      <head>
+        {/* the opening frame is the hero's background — fetch it with the
+            document, not after the client bundle has booted */}
+        <link
+          rel="preload"
+          as="image"
+          href="/frames/hd/001.jpg"
+          media="(min-width: 901px)"
+        />
+        <link
+          rel="preload"
+          as="image"
+          href="/frames/sm/001.webp"
+          media="(max-width: 900px)"
+        />
+      </head>
       <body>
-        <AmbientField />
+        <Film />
         {children}
       </body>
     </html>
