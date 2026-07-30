@@ -3,6 +3,10 @@ dist/
 *.tsbuildinfo
 .DS_Store
 
+# Next.js landing page build output
+.next/
+next-env.d.ts
+
 # Local dev databases
 *.db
 *.db-shm
