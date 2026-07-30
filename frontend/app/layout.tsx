@@ -42,7 +42,7 @@ export default function RootLayout({
         <link
           rel="preload"
           as="image"
-          href="/frames/hd/001.jpg"
+          href="/frames/hd/001.webp"
           media="(min-width: 901px)"
         />
         <link

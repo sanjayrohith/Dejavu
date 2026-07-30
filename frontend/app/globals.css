@@ -8,6 +8,12 @@
   --bg-elev: #0e1015;
   --bg-elev-2: #14171f;
 
+  /* Card fills for anything sitting inside a .panel. The panel is glass, so an
+     opaque card would punch a solid hole in the film the panel just let through
+     — these are the same values as --bg-elev/-2, held back to let it read. */
+  --card: rgba(16, 19, 26, 0.5);
+  --card-hi: rgba(26, 30, 40, 0.66);
+
   --line: rgba(255, 255, 255, 0.07);
   --line-strong: rgba(255, 255, 255, 0.14);
 
@@ -103,20 +109,25 @@ footer {
   opacity: var(--film-veil);
 }
 
-/* static half: edge fall-off plus a bottom-weighted lift, which is what makes
-   copy legible over a sky */
+/* Edge fall-off only, and barely that.
+
+   This used to carry a heavy bottom band (0.82 at the floor) to seat the hero
+   copy on. That band was the single largest thing dimming the picture, and it
+   sat exactly across the lit end of the bridge — the best part of the frame.
+   Legibility is bought locally now, in .hero__text's shadow, which costs the
+   plate nothing. What is left here is a whisper at the very bottom edge so the
+   image does not simply stop, and a wide corner falloff to keep the eye centred. */
 .film__vignette {
   position: absolute;
   inset: 0;
   background:
     linear-gradient(
       to top,
-      rgba(6, 7, 10, 0.92) 0%,
-      rgba(6, 7, 10, 0.6) 18%,
-      rgba(6, 7, 10, 0.12) 46%,
-      transparent 72%
+      rgba(6, 7, 10, 0.28) 0%,
+      rgba(6, 7, 10, 0.1) 10%,
+      transparent 26%
     ),
-    radial-gradient(125% 95% at 50% 42%, transparent 34%, rgba(4, 5, 8, 0.72) 100%);
+    radial-gradient(140% 110% at 50% 45%, transparent 72%, rgba(4, 5, 8, 0.26) 100%);
 }
 
 /* the interior is lit by candles — let a little of that temperature bleed into
@@ -133,10 +144,16 @@ footer {
   opacity: var(--film-warm);
 }
 
+/* The plate used to arrive with its own noise floor — compression blocks — so
+   grain on top only read as a dirty image and had to be held near zero. The
+   frames are deblocked and debanded now (scripts/build-frames.sh), which leaves
+   room for real grain, and buys something back: the interior is almost entirely
+   near-black gradient, where 8-bit output banding is a genuine risk, and a
+   little noise over the top dithers those ramps at composite time. */
 .film__grain {
   position: absolute;
   inset: 0;
-  opacity: 0.035;
+  opacity: 0.032;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
@@ -171,22 +188,53 @@ footer {
   overflow: hidden;
 }
 
+/* ---------------- small type sitting straight on the film ---------------- */
+
+/* Nothing washes the plate any more, so every one of these is set against a
+   live dawn sky at whatever brightness the frame happens to be. They are the
+   hardest case on the page: 10–11px, mono, widely letter-spaced, and in the
+   eyebrow's case amber — which measured 1.2:1 against the sky behind it.
+
+   A wide soft drop shadow does nothing at that weight; it spreads too thin to
+   separate a one-pixel stem. What works is a tight, near-opaque halo that
+   reaches only two or three pixels, so the letterforms get a hard edge to sit
+   on and the picture still runs right up to them. This is the whole reason the
+   veil and the hero scrim could be taken away. */
+.hero .eyebrow,
+.hero__meta,
+.hero__scroll,
+.beat__kicker {
+  text-shadow:
+    0 0 3px rgba(4, 5, 8, 0.95),
+    0 0 9px rgba(4, 5, 8, 0.9),
+    0 1px 2px rgba(4, 5, 8, 0.95);
+}
+
+/* both of these are boxes rather than glyphs, so they take the halo as a glow */
+.hero .eyebrow::before,
+.hero__scroll-rule {
+  box-shadow: 0 0 4px 1px rgba(4, 5, 8, 0.9);
+}
+
 /* ---------------- glass panel ---------------- */
 
 /* Content rides over the film rather than covering it: a blurred slab wide
-   enough to read on, with the plate still visible around every edge. */
+   enough to read on, with the plate still visible *through* it, not just around
+   the edges. The tint is deliberately light — heavy enough to seat the copy,
+   sheer enough that the camera move still reads behind the words as you scroll.
+   Contrast comes from the veil (see VEIL_STOPS) and the blur, not from opacity. */
 .panel {
   position: relative;
   padding: clamp(26px, 4.2vw, 54px);
   border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.085);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: linear-gradient(
     160deg,
-    rgba(20, 23, 31, 0.74),
-    rgba(8, 9, 12, 0.84) 62%
+    rgba(18, 21, 29, 0.42),
+    rgba(6, 7, 10, 0.56) 62%
   );
-  backdrop-filter: blur(26px) saturate(1.3);
-  -webkit-backdrop-filter: blur(26px) saturate(1.3);
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
   box-shadow:
     0 44px 96px -44px rgba(0, 0, 0, 0.92),
     inset 0 1px 0 rgba(255, 255, 255, 0.07);
@@ -211,8 +259,8 @@ footer {
 .panel--quiet {
   background: linear-gradient(
     160deg,
-    rgba(20, 23, 31, 0.5),
-    rgba(8, 9, 12, 0.62) 62%
+    rgba(18, 21, 29, 0.26),
+    rgba(6, 7, 10, 0.36) 62%
   );
   border-color: rgba(255, 255, 255, 0.06);
   box-shadow: 0 30px 70px -46px rgba(0, 0, 0, 0.85);
@@ -221,6 +269,51 @@ footer {
 @media (max-width: 620px) {
   .panel {
     border-radius: 18px;
+  }
+}
+
+/* backdrop-filter is the whole legibility budget for a sheer panel; where it is
+   unsupported, fall back to an opaque slab rather than unreadable copy */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .panel {
+    background: linear-gradient(160deg, rgba(14, 16, 22, 0.93), rgba(6, 7, 10, 0.96) 62%);
+  }
+
+  .panel--quiet {
+    background: linear-gradient(160deg, rgba(14, 16, 22, 0.88), rgba(6, 7, 10, 0.92) 62%);
+  }
+}
+
+/* ---------------- panel header ---------------- */
+
+/* A section head is a heading plus one paragraph of lede. Stacked, that leaves
+   the right half of a 1180px panel empty — so set them side by side and let the
+   film fill nothing. Collapses back to a stack once the two columns stop being
+   wide enough to read in. */
+.panel__head {
+  display: grid;
+  /* The heading is the wide one — a lede is two lines of 15px and a headline is
+     three words of 43px. An even split pushed every h2 to three lines. */
+  grid-template-columns: minmax(0, 1.42fr) minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 44px);
+  align-items: end;
+}
+
+/* the lede is the second column, so it must not also cap itself at 62ch */
+.panel__head .lede {
+  margin-top: 0;
+  max-width: 46ch;
+  padding-bottom: 6px;
+}
+
+@media (max-width: 860px) {
+  .panel__head {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .panel__head .lede {
+    max-width: 62ch;
   }
 }
 
@@ -269,21 +362,25 @@ footer {
   letter-spacing: 0.1em;
 }
 
+/* These float on uncovered film with no panel to sit in, so the shadow is doing
+   all the work — a tight dark halo for edge contrast plus a wide one to seat the
+   block. The sub-line needs it most: dim grey over a lit shaft is the worst case
+   on the whole page. */
 .beat__line {
   margin-top: 26px;
   font-size: clamp(2.05rem, 5.1vw, 3.85rem);
   font-weight: 600;
   line-height: 1.08;
   letter-spacing: -0.035em;
-  text-shadow: 0 10px 48px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.72), 0 10px 48px rgba(0, 0, 0, 0.8);
 }
 
 .beat__sub {
   margin: 24px auto 0;
   max-width: 62ch;
-  color: var(--text-dim);
+  color: #b6bcc7;
   font-size: 1.06rem;
-  text-shadow: 0 4px 26px rgba(0, 0, 0, 0.85);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.86), 0 4px 30px rgba(0, 0, 0, 0.8);
 }
 
 .beat[data-align="left"] .beat__sub {
@@ -570,15 +667,43 @@ p {
   position: relative;
 }
 
+/* No scrim. The hero shows the plate at full strength — the dawn sky, the lit
+   bridge and the lanterns are the point of the shot, and any wash over them is
+   a tax paid by the picture to make the type easier. The type pays for itself
+   instead: see .hero__text, which carries its own shadow so each glyph darkens
+   only the few pixels behind it. */
+
+@media (max-width: 860px) {
+  /* no room to fall off sideways — seat it from the bottom instead */
+  .hero::before {
+    background: linear-gradient(
+      to top,
+      rgba(6, 7, 10, 0.82) 0%,
+      rgba(6, 7, 10, 0.52) 42%,
+      transparent 78%
+    );
+  }
+}
+
 .hero__content {
   position: relative;
   z-index: 2;
 }
 
+/* The whole legibility budget for the hero, now that nothing washes the plate.
+   Three stops on purpose: a tight one that hugs the glyph edge and does the
+   real separating work, a mid one that reads as a soft drop, and a wide low-
+   alpha one that lifts the block off a busy background without showing up as
+   a visible box. Type stays crisp; the picture behind it stays untouched. */
 .hero__text {
   max-width: 640px;
-  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 2px 14px rgba(0, 0, 0, 0.78),
+    0 8px 46px rgba(0, 0, 0, 0.62);
 }
+
+
 
 /* the whole page is one camera move — say so once, at the top */
 .hero__scroll {
@@ -594,7 +719,8 @@ p {
   font-size: 10px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  /* --text-faint disappeared entirely once the plate came up to full */
+  color: var(--text-dim);
 }
 
 .hero__scroll-rule {
@@ -631,9 +757,12 @@ p {
   color: var(--accent);
 }
 
+/* --text-dim was picked to sit back from a heading on a dark panel. With the
+   plate uncovered it just goes missing against a lit sky, so the hero takes the
+   full text tone; the shadow on .hero__text is what separates it now. */
 .hero__sub {
   margin-top: 24px;
-  color: var(--text-dim);
+  color: var(--text);
   font-size: 1.09rem;
   max-width: 52ch;
 }
@@ -654,7 +783,8 @@ p {
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  /* --text-faint is invisible over an uncovered plate at 11px */
+  color: var(--text-dim);
 }
 
 .hero__meta span {
@@ -1036,10 +1166,13 @@ p {
 
 /* ---------------- problem section ---------------- */
 
+/* Two up. Each row is one short clause, so a single column ran the list down
+   the left edge and left the rest of the panel empty; the 1px grid gap doubles
+   as the hairline between cells. */
 .alerts {
   margin-top: 44px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
@@ -1052,12 +1185,12 @@ p {
   align-items: center;
   gap: 16px;
   padding: 19px 22px;
-  background: var(--bg-elev);
+  background: var(--card);
   transition: background 0.28s, padding-left 0.28s var(--ease);
 }
 
 .alert:hover {
-  background: var(--bg-elev-2);
+  background: var(--card-hi);
   padding-left: 28px;
 }
 
@@ -1373,9 +1506,11 @@ p {
 .bounds {
   margin-top: 46px;
   display: grid;
-  /* 330px floor lands a clean 3 x 2 at desktop width; min() lets the track give
-     way on a phone instead of pushing the page sideways */
-  grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr));
+  /* 310px floor lands a clean 3 x 2 at desktop width; min() lets the track give
+     way on a phone instead of pushing the page sideways.
+     (330 needed 1018px of track and the panel offers 1016 — it silently fell to
+     two columns and left a third of the panel empty. Do not raise it back.) */
+  grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr));
   gap: 14px;
 }
 
@@ -1383,7 +1518,7 @@ p {
   padding: 22px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: var(--bg-elev);
+  background: var(--card);
   position: relative;
   overflow: hidden;
   transition: border-color 0.3s, transform 0.3s var(--ease);
@@ -1492,7 +1627,7 @@ p {
 }
 
 .proves {
-  margin: 24px 0 0;
+  margin: 42px 0 0;
   padding: 0;
   list-style: none;
   display: grid;

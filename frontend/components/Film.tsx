@@ -7,13 +7,25 @@ import {
   SM,
   fetchOrder,
   frameSrc,
+  nearestFrame,
   veilAt,
   type FrameSet,
 } from "@/lib/film";
 import { clamp, damp, onFrame, smooth } from "@/lib/raf";
 
-/** How hard the frame chases the scroll. Higher = tighter, lower = floatier. */
-const CHASE = 9;
+/** How hard the frame chases the scroll, in e-folds per second — so ~1/CHASE
+    is the time constant. At 9 the plate was locked to the wheel and the camera
+    move inherited the scroll's own jitter; at 5 it trails by about 200ms and
+    the shot reads as a camera easing into position rather than a slider being
+    dragged. It still lands on exactly the same frame for a given scroll offset
+    — this changes how the move feels, not where it ends up. */
+const CHASE = 5;
+/** Scroll must be this still before the plate resolves to a single frame. Long
+    enough not to fire between wheel notches, short enough to feel immediate.
+    Unaffected by CHASE: retargeting from a fractional frame to its nearest
+    whole one mid-glide is continuous under damp(), so this can stay prompt and
+    keep the at-rest double image short. */
+const REST_MS = 120;
 /** Parallel image requests. Enough to saturate a connection, few enough to
     keep the opening frames ahead of the reader. */
 const CONCURRENCY = 8;
@@ -164,12 +176,13 @@ export default function Film() {
       cw = root!.clientWidth;
       ch = root!.clientHeight;
 
-      /* The plate is only 1280px wide, so a retina backing store would just
-         upscale further for nothing. Cap the buffer at a modest multiple of the
-         source and let the browser's bilinear filter do the rest — same picture,
-         a quarter of the fill rate on a 4K display. */
-      const ceiling = cw > 0 ? (set.width * 1.7) / cw : 2;
-      dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2, ceiling));
+      /* Resample exactly once, at device resolution.
+         Capping the buffer below the device grid does not save the picture from
+         being upscaled — it just upscales it twice: 1280 → ~1.1x CSS px here,
+         then the compositor stretches that to the physical pixels. Two resamples
+         compound into mush. One clean 1280 → native pass is visibly sharper, and
+         blitting one or two stills is not what costs a GPU anything. */
+      dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
 
       canvas!.width = Math.round(cw * dpr);
       canvas!.height = Math.round(ch * dpr);
@@ -219,9 +232,22 @@ export default function Film() {
     /* ---------------- loop ---------------- */
 
     let current = 1;
+    let lastAim = -1;
+    let restMs = 0;
 
     const stop = onFrame(({ dt, y }) => {
-      const target = reduced ? snapFrame(y) : targetFrame(y);
+      const aim = reduced ? snapFrame(y) : targetFrame(y);
+
+      /* Cue interpolation lands on fractional frames, so at rest the painter was
+         holding a 50/50 dissolve of two different camera positions — a ghosted
+         double image, permanently, exactly while the reader is stopped and
+         looking at it. Once the scroll has actually settled, aim at a whole
+         frame instead. Neighbouring frames differ by very little, so this reads
+         as the picture resolving rather than as motion. */
+      restMs = Math.abs(aim - lastAim) < 0.01 ? restMs + dt * 1000 : 0;
+      lastAim = aim;
+      const target = !reduced && restMs > REST_MS ? nearestFrame(set, aim) : aim;
+
       current = reduced ? target : damp(current, target, CHASE, dt);
 
       /* settle exactly, so a held frame is a held frame and not a slow crawl */

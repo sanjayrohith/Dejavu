@@ -3,10 +3,16 @@
  * dawn, arrives at a gate, passes through it, and settles inside a candlelit
  * hall. The page rides that shot from top to bottom.
  *
- * Frames live in /public/frames. Two sets, because a phone should not pull a
- * desktop sequence:
- *   hd — 1280x720 JPEG (the source encode; re-encoding to WebP made it larger)
- *   sm —  860x484 WebP, sampled every other frame
+ * Frames live in /public/frames, built by scripts/build-frames.sh from 1280x720
+ * masters that are kept in git history rather than in the tree — that script
+ * documents how to restore them. The masters are heavily compressed, so each
+ * one is deblocked and debanded *before* being resampled; see the script for
+ * why. Two sets, because a phone should not pull a desktop sequence:
+ *   hd — 1920x1080 WebP, every frame
+ *   sm — 1280x720  WebP, every other frame
+ *
+ * Both are delivered above the master's 1280px so that what the browser
+ * enlarges is a clean picture rather than a grid of JPEG blocks.
  */
 
 export const FRAME_COUNT = 150;
@@ -20,11 +26,22 @@ export interface FrameSet {
   height: number;
 }
 
-export const HD: FrameSet = { dir: "hd", ext: "jpg", step: 1, width: 1280, height: 720 };
-export const SM: FrameSet = { dir: "sm", ext: "webp", step: 2, width: 860, height: 484 };
+export const HD: FrameSet = { dir: "hd", ext: "webp", step: 1, width: 1920, height: 1080 };
+export const SM: FrameSet = { dir: "sm", ext: "webp", step: 2, width: 1280, height: 720 };
 
 export function frameSrc(set: FrameSet, n: number): string {
   return `/frames/${set.dir}/${String(n).padStart(3, "0")}.${set.ext}`;
+}
+
+/**
+ * Nearest frame index this set actually ships. The sm set samples every other
+ * frame, so rounding to a plain integer there can land on a frame that was never
+ * encoded — and the painter would bracket-blend around it, which is exactly the
+ * soft double image the caller was trying to avoid.
+ */
+export function nearestFrame(set: FrameSet, f: number): number {
+  const snapped = Math.round((f - 1) / set.step) * set.step + 1;
+  return snapped < 1 ? 1 : snapped > FRAME_COUNT ? FRAME_COUNT : snapped;
 }
 
 /** Frame indices this set actually ships, low to high. */
@@ -61,17 +78,23 @@ export function fetchOrder(set: FrameSet): number[] {
 /* ---------------- the shot, in acts ---------------- */
 
 /**
- * How dark the veil over the film sits, by frame. The exterior is a bright dawn
- * sky that white copy cannot survive; the interior is already near-black and a
- * heavy veil there would just kill the candles. Interpolated linearly.
+ * How dark the veil over the film sits, by frame. Interpolated linearly.
+ *
+ * Near zero, deliberately. The plate is the page's subject, not its wallpaper,
+ * and every point of veil is contrast taken from the picture to make type
+ * easier. Type buys its own contrast instead — the panels are blurred glass and
+ * the hero copy carries a three-stop shadow — so none of it needs the whole
+ * frame held down. What is left here is act-aware only in the sense that the
+ * bright dawn exterior can carry a hair more than the candlelit interior, where
+ * the plate is already near-black and any veil at all eats the candles.
  */
 export const VEIL_STOPS: [frame: number, opacity: number][] = [
-  [1, 0.45],
-  [60, 0.44],
-  [88, 0.38],
-  [96, 0.28],
-  [110, 0.22],
-  [150, 0.24],
+  [1, 0.06],
+  [60, 0.06],
+  [88, 0.05],
+  [96, 0.03],
+  [110, 0.02],
+  [150, 0.03],
 ];
 
 export function veilAt(frame: number): number {

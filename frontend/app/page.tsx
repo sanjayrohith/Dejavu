@@ -89,10 +89,12 @@ export default function Page() {
         <section className="section" id="problem">
           <div className="wrap">
             <div className="panel">
-              <Reveal>
-                <p className="eyebrow">The problem</p>
-                <h2>Agents lose the expensive part of the work.</h2>
-                <p className="lede" style={{ marginTop: 18 }}>
+              <Reveal className="panel__head">
+                <div>
+                  <p className="eyebrow">The problem</p>
+                  <h2>Agents lose the expensive part of the work.</h2>
+                </div>
+                <p className="lede">
                   Every new session, the same context evaporates — and the next
                   agent pays to rediscover it.
                 </p>
@@ -139,10 +141,12 @@ export default function Page() {
         <section className="section section--tight" id="how-intro">
           <div className="wrap">
             <div className="panel panel--quiet">
-              <Reveal>
-                <p className="eyebrow">How it works</p>
-                <h2>Four laps: remember, recall, handoff, verify.</h2>
-                <p className="lede" style={{ marginTop: 18 }}>
+              <Reveal className="panel__head">
+                <div>
+                  <p className="eyebrow">How it works</p>
+                  <h2>Four laps: remember, recall, handoff, verify.</h2>
+                </div>
+                <p className="lede">
                   The whole loop is two calls at the edges of a session and two
                   that keep it honest in between.
                 </p>
@@ -173,10 +177,12 @@ export default function Page() {
         <section className="section" id="boundaries">
           <div className="wrap">
             <div className="panel">
-              <Reveal>
-                <p className="eyebrow">Design boundaries</p>
-                <h2>Deliberately narrow, and honest about it.</h2>
-                <p className="lede" style={{ marginTop: 18 }}>
+              <Reveal className="panel__head">
+                <div>
+                  <p className="eyebrow">Design boundaries</p>
+                  <h2>Deliberately narrow, and honest about it.</h2>
+                </div>
+                <p className="lede">
                   Every one of these is a trade-off Dejavu chose on purpose — not
                   a feature still on the roadmap.
                 </p>
@@ -211,10 +217,12 @@ export default function Page() {
         <section className="section section--tight" id="mcp">
           <div className="wrap">
             <div className="panel">
-              <Reveal>
-                <p className="eyebrow">The interface</p>
-                <h2>Seven tools. The descriptions are the contract.</h2>
-                <p className="lede" style={{ marginTop: 18 }}>
+              <Reveal className="panel__head">
+                <div>
+                  <p className="eyebrow">The interface</p>
+                  <h2>Seven tools. The descriptions are the contract.</h2>
+                </div>
+                <p className="lede">
                   Dejavu does not require a{" "}
                   <span className="mono">SKILL.md</span>, an{" "}
                   <span className="mono">AGENTS.md</span>, or a memory paragraph
@@ -247,15 +255,19 @@ export default function Page() {
         <section className="section" id="shared">
           <div className="wrap">
             <div className="panel">
-              <Reveal>
-                <span className="badge">Preview — not production</span>
-                <h2 style={{ marginTop: 20 }}>Shared mode</h2>
-                <p className="lede" style={{ marginTop: 16 }}>
+              <Reveal className="panel__head">
+                <div>
+                  <span className="badge">Preview — not production</span>
+                  <h2 style={{ marginTop: 20 }}>Shared mode</h2>
+                </div>
+                <p className="lede">
                   A Cloudflare Worker with one Durable Object SQL database per
                   memory space, numbered committed changes over SSE, and
                   rebuildable local SQLite/FTS mirrors.
                 </p>
+              </Reveal>
 
+              <Reveal delay={110}>
                 <Reveal as="ul" className="proves" stagger>
                   {SHARED_PROVES.map((p) => (
                     <li key={p}>{p}</li>
@@ -290,10 +302,12 @@ export default function Page() {
         <section className="section" id="install">
           <div className="wrap">
             <div className="panel">
-              <Reveal>
-                <p className="eyebrow">Get started</p>
-                <h2>Sixty seconds to a remembering agent.</h2>
-                <p className="lede" style={{ marginTop: 18 }}>
+              <Reveal className="panel__head">
+                <div>
+                  <p className="eyebrow">Get started</p>
+                  <h2>Sixty seconds to a remembering agent.</h2>
+                </div>
+                <p className="lede">
                   Dejavu currently requires{" "}
                   <a
                     className="accent"
