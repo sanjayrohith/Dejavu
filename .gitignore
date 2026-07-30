@@ -22,3 +22,6 @@ eval/next-agent/real/
 # Local experiment run artifacts; summarized RESULT.md receipts stay tracked
 experiments/**/evidence/
 experiments/**/.guardrail/
+
+# Local explainer notes
+EXPLAINER.md
