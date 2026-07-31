@@ -1,7 +1,5 @@
 <div align="center">
 
-<br/>
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/dejavu.png">
   <source media="(prefers-color-scheme: light)" srcset="assets/dejavu-dark.png">
@@ -45,6 +43,18 @@ stored in one inspectable <strong>SQLite</strong> file.
 > **No account. No daemon. No embeddings required. No transcript dump into the prompt.**
 >
 > Local Dejavu is the production surface in `v0.1.0`. Shared mode is a tested preview and intentionally remains local-only until its security review is complete.
+
+<br/>
+
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/dejavu-hero-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/dejavu-hero-light.png">
+  <img src="assets/dejavu-hero-dark.png" alt="Dejavu — repository-scoped memory for coding agents. A session ends and writes a typed note and a handoff into one local SQLite file; the next session recalls a bounded, cited packet and continues where the last one stopped." width="100%">
+</picture>
+
+</div>
 
 <br/>
 
