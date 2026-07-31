@@ -202,7 +202,6 @@ footer {
    veil and the hero scrim could be taken away. */
 .hero .eyebrow,
 .hero__meta,
-.hero__scroll,
 .beat__kicker {
   text-shadow:
     0 0 3px rgba(4, 5, 8, 0.95),
@@ -210,9 +209,8 @@ footer {
     0 1px 2px rgba(4, 5, 8, 0.95);
 }
 
-/* both of these are boxes rather than glyphs, so they take the halo as a glow */
-.hero .eyebrow::before,
-.hero__scroll-rule {
+/* this is a box rather than a glyph, so it takes the halo as a glow */
+.hero .eyebrow::before {
   box-shadow: 0 0 4px 1px rgba(4, 5, 8, 0.9);
 }
 
@@ -662,7 +660,8 @@ p {
 .hero {
   min-height: 100svh;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
   padding: 108px 0 clamp(72px, 9vh, 110px);
   position: relative;
 }
@@ -688,6 +687,8 @@ p {
 .hero__content {
   position: relative;
   z-index: 2;
+  display: flex;
+  justify-content: center;
 }
 
 /* The whole legibility budget for the hero, now that nothing washes the plate.
@@ -697,60 +698,11 @@ p {
    a visible box. Type stays crisp; the picture behind it stays untouched. */
 .hero__text {
   max-width: 640px;
+  text-align: center;
   text-shadow:
     0 1px 2px rgba(0, 0, 0, 0.6),
     0 2px 14px rgba(0, 0, 0, 0.78),
     0 8px 46px rgba(0, 0, 0, 0.62);
-}
-
-
-
-/* the whole page is one camera move — say so once, at the top */
-.hero__scroll {
-  position: absolute;
-  left: 50%;
-  bottom: 26px;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-mono), monospace;
-  font-size: 10px;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  /* --text-faint disappeared entirely once the plate came up to full */
-  color: var(--text-dim);
-}
-
-.hero__scroll-rule {
-  width: 1px;
-  height: 42px;
-  background: linear-gradient(to bottom, transparent, var(--accent));
-  transform-origin: top;
-  animation: scrollHint 2.6s var(--ease) infinite;
-}
-
-@keyframes scrollHint {
-  0% {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-  35% {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-  75%,
-  100% {
-    transform: scaleY(1) translateY(42px);
-    opacity: 0;
-  }
-}
-
-@media (max-width: 940px) {
-  .hero__scroll {
-    display: none;
-  }
 }
 
 .hero h1 span {
@@ -770,12 +722,14 @@ p {
 .hero__cta {
   margin-top: 36px;
   display: flex;
+  justify-content: center;
   gap: 13px;
   flex-wrap: wrap;
 }
 
 .hero__meta {
-  margin-top: 40px;
+  margin: 40px auto 0;
+  width: fit-content;
   display: grid;
   grid-template-columns: repeat(2, max-content);
   gap: 12px 30px;
@@ -1166,18 +1120,16 @@ p {
 
 /* ---------------- problem section ---------------- */
 
-/* Two up. Each row is one short clause, so a single column ran the list down
-   the left edge and left the rest of the panel empty; the 1px grid gap doubles
-   as the hairline between cells. */
+/* Individual cards, same 310px-floor 3-up grid as .bounds below — a single
+   merged hairline-table used to run this, but an odd item count always left a
+   dangling cell showing raw grid-gap background in the last row. Matching
+   .bounds' pattern keeps both lists reading as one system and fills cleanly at
+   any item count that is a multiple of the resulting column count. */
 .alerts {
   margin-top: 44px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
-  gap: 1px;
-  background: var(--line);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow: hidden;
+  grid-template-columns: repeat(auto-fit, minmax(min(310px, 100%), 1fr));
+  gap: 14px;
 }
 
 .alert {
@@ -1185,13 +1137,35 @@ p {
   align-items: center;
   gap: 16px;
   padding: 19px 22px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
   background: var(--card);
-  transition: background 0.28s, padding-left 0.28s var(--ease);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, transform 0.3s var(--ease), background 0.28s;
+}
+
+.alert::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.45s var(--ease);
 }
 
 .alert:hover {
   background: var(--card-hi);
-  padding-left: 28px;
+  border-color: var(--line-strong);
+  transform: translateY(-3px);
+}
+
+.alert:hover::before {
+  transform: scaleY(1);
 }
 
 .alert__idx {
@@ -1764,12 +1738,6 @@ p {
 
   .film__canvas {
     opacity: 1;
-  }
-
-  .hero__scroll-rule {
-    animation: none;
-    opacity: 1;
-    transform: none;
   }
 
   /* the spine must read as fully linked, not mid-draw */

@@ -66,11 +66,6 @@ export default function Page() {
               </div>
             </div>
           </div>
-
-          <div className="hero__scroll" aria-hidden="true">
-            <span className="hero__scroll-rule" />
-            scroll
-          </div>
         </section>
 
         <Cue frame={CUE.heroEnd} />
