@@ -5,60 +5,6 @@
 
 export const REPO = "https://github.com/sanjayrohith/Dejavu";
 
-export type SlipKind =
-  | "decision"
-  | "preference"
-  | "procedure"
-  | "pitfall"
-  | "fact"
-  | "wip"
-  | "note";
-
-export interface KindSpec {
-  kind: SlipKind;
-  /** verbatim from the README kind table */
-  use: string;
-  example: string;
-}
-
-export const KINDS: KindSpec[] = [
-  {
-    kind: "decision",
-    use: "A choice that constrains future work",
-    example: 'remember("Use Vitest, not Jest", { kind: "decision" })',
-  },
-  {
-    kind: "preference",
-    use: "A user or project preference",
-    example: 'remember("Prefer named exports", { kind: "preference" })',
-  },
-  {
-    kind: "procedure",
-    use: "A reusable, verified sequence",
-    example: 'remember("Deploy: bun run check → wrangler deploy")',
-  },
-  {
-    kind: "pitfall",
-    use: "A failure, sharp edge, or thing not to repeat",
-    example: 'remember("SSE stream dies without keepalive < 30s")',
-  },
-  {
-    kind: "fact",
-    use: "A verified project-specific finding",
-    example: 'remember("FTS5 porter stemmer is enabled on slips_fts")',
-  },
-  {
-    kind: "wip",
-    use: "Current work, blockers, and next steps",
-    example: 'remember("Auth refactor done, canary not deployed")',
-  },
-  {
-    kind: "note",
-    use: "Safe fallback for everything else",
-    example: 'remember("Origin normalisation strips .git suffix")',
-  },
-];
-
 /** README → "Why Dejavu": what agents lose between sessions. */
 export const LOSSES: { lead: string; rest: string }[] = [
   { lead: "The decision", rest: "and why it was made" },
