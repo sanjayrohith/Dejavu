@@ -1,0 +1,56 @@
+# Contributing to Dejavu
+
+Thanks for your interest in improving this project. Contributions are
+welcome through GitHub Issues and Pull Requests, subject to the terms
+below.
+
+## Before You Contribute
+
+This project is licensed under a proprietary license, not a standard
+open-source license. See [LICENSE.md](LICENSE.md) for the full terms.
+The short version:
+
+- The Owner (Sanjay Rohith) retains full ownership of this project and
+  everything in it, including any code you contribute.
+- You may not copy, resell, or use this project (or any part of it) as
+  the base for another project.
+- You *can* open Issues and submit Pull Requests.
+
+**By opening a Pull Request, submitting a patch, or filing an Issue with
+code or content attached, you agree to the terms in LICENSE.md,
+including Section 3 (Contributions).** In short: you're granting the
+Owner an irrevocable, royalty-free license to use and incorporate your
+contribution into the project, and you won't gain any ownership stake or
+usage rights beyond what LICENSE.md already permits.
+
+If you don't agree to those terms, please don't submit a Contribution —
+opening an Issue to report a bug or suggest an idea without attaching
+code is always fine and doesn't require agreement to Section 3.
+
+## How to Contribute
+
+1. **Open an Issue first** for anything beyond a trivial fix (typos,
+   small bug fixes). This lets us agree on the approach before you spend
+   time on it.
+2. **Fork and branch** from the latest `main`.
+3. **Keep Pull Requests focused** — one fix or feature per PR makes
+   review faster.
+4. **Describe your change** in the PR: what it does, why it's needed,
+   and how you tested it.
+5. **Be responsive to review feedback.** The Owner has final say on
+   whether a contribution is merged.
+
+## What Happens After You Submit
+
+- The Owner will review your Issue or PR and may accept it, request
+  changes, or decline it.
+- Accepted contributions become part of the project under the terms of
+  LICENSE.md. You will not receive ownership, royalties, or a separate
+  license to reuse the merged code outside this project.
+- Credit for contributions may be given (e.g., in commit history or
+  release notes) as a courtesy, but is not an obligation under the
+  license.
+
+## Questions
+
+For anything not covered here, reach out to sanjayrohith1802@gmail.com.
