@@ -7,14 +7,18 @@ Resolved decisions — the three open questions in §7 were answered during the 
 
 | Question | Decision | Why |
 |---|---|---|
-| Accent colour | **Amber `#ffb020`** with cyan `#56d9e8` for graph edges only | Reads as cockpit/HUD; racing red was rejected as F1 cosplay |
+| Accent colour | **Amber `#ffb020`** primary, cyan `#56d9e8` as a secondary accent (progress bar, links, borders) | Reads as cockpit/HUD; racing red was rejected as F1 cosplay |
 | Lap scroll behaviour | **Scroll-reveal** via `IntersectionObserver`, sticky HUD | Cheaper, no jank on mobile, no hijacked scrolling |
 | Install ordering | **MCP-first** (install → wire into agent) | Matches the README and the actual activation moment |
 
 Implementation notes worth keeping:
 
-- The hero graph is hand-placed SVG (`components/MemoryGraph.tsx`), not force-directed —
-  deterministic composition beat physics here, and no layout library was needed.
+- The hero and every section backdrop are one canvas-painted image sequence
+  (`components/Film.tsx`), scrubbed by scroll position — not the SVG memory-graph
+  hero originally planned in §2/§3.1 below. `components/MemoryGraph.tsx` was built
+  but never wired into the page and has since been removed; `AmbientField.tsx`,
+  referenced in an earlier draft of §4, was never built. See the "Current design"
+  notes inline in §2–§4 for what actually shipped.
 - Grid items carry `min-width: 0`; without it the terminal `<pre>` stretched its track
   and produced 164px of horizontal page overflow at 390px wide.
 - Verified at 390 / 768 / 1440 px with zero horizontal body overflow. Wide terminal
@@ -32,34 +36,25 @@ Everything below is designed to serve #1 first. The motion system exists to carr
 
 ## 2. The central metaphor
 
-F1 driver sites orbit one physical object (the car, the number, the helmet) rendered with motion and repeated at every scale. Dejavu doesn't have a physical object — it has a **memory graph**: typed nodes (`decision`, `pitfall`, `procedure`, `preference`, `fact`, `wip`, `note`) connected by real relationships (`supersedes`, `contradicts`, `related`).
+F1 driver sites orbit one physical object (the car, the number, the helmet) rendered with motion and repeated at every scale. The original plan for Dejavu was a **memory graph** filling that role: typed nodes (`decision`, `pitfall`, `procedure`, `preference`, `fact`, `wip`, `note`) connected by real relationships (`supersedes`, `contradicts`, `related`), live in the hero and recurring, smaller and quieter, down the page.
 
-That graph is the "car." It appears in the hero as a live animation, then recurs — smaller, quieter — as the connective visual language for every section below. One motif, reused at decreasing intensity, is what makes a page feel designed rather than assembled.
+**Current design:** that graph was never wired in. What ships instead is a single continuous camera move — a 150-frame image sequence (`components/Film.tsx`, frames in `lib/film.ts`) crossing a lantern-lit bridge at dawn, arriving at a gate, and settling inside a candlelit hall — pinned behind the whole page and scrubbed by scroll position via `data-film-cue` markers (`components/Cue.tsx`). That journey is the throughline now: the four chapter cards (`components/Beat.tsx`) narrate it explicitly — "the walk back," "a door, not a dump," "cross the threshold," "what you are left holding" — as the reader moves from outside the gate to inside the archive.
 
-Secondary metaphor, used structurally rather than decoratively: **scroll = lap**. The product's own story already has four beats — store, recall, handoff, verify — which map cleanly onto a "4 laps" scroll structure without forcing a racing theme where it doesn't belong. No checkered flags, no tire textures, no red-bull-cans aesthetic — that's costume, not craft. What's borrowed from racing sites is the *structure* (HUD, telemetry-style stats, lap progression), not the *iconography*.
+Secondary metaphor, used structurally rather than decoratively: **scroll = lap**. This one did ship as designed. The product's own story already has four beats — remember, recall, handoff, verify — which map onto a "4 laps" scroll structure (`components/Laps.tsx`, a sticky HUD counting "Lap 01–04") without forcing a racing theme where it doesn't belong. No checkered flags, no tire textures, no red-bull-cans aesthetic — that's costume, not craft. What's borrowed from racing sites is the *structure* (HUD, telemetry-style stats, lap progression), not the *iconography*.
 
 ## 3. Page structure (section by section)
 
 ### 3.1 Hero
-- Full-viewport section. The graph is **full-bleed** — absolutely positioned across
-  the entire hero, not a column beside the text. Its `viewBox` is measured from the
-  container and mapped 1:1 to CSS pixels, so it fills any space with no cropping and
-  no distortion (a fixed viewBox with `preserveAspectRatio="slice"` would clip nodes
-  at some aspect ratios).
-- Node positions are stored **normalised (0..1) in two layouts**. Scroll progress
-  through the hero lerps between them (eased `easeInOutCubic`), so the constellation
-  visibly consolidates toward the hub as you scroll — what recall does to memory —
-  and the whole graph fades to 45% as the hero leaves.
-- Layout A deliberately keeps every node in the right ~60% and the text column is
-  capped at 545px. Earlier revisions had nodes buried under the headline scrim,
-  reading as dead grey dots with invisible labels. **Check node/headline collision
-  whenever layout A changes.**
+- Full-viewport section. The plan below (full-bleed SVG graph, two normalised
+  layouts lerped by scroll progress) was never built. **Current design:** the hero
+  background is the opening act of the `Film` image sequence — full-bleed canvas,
+  `object-fit: cover` framing — with a directional veil/vignette (`lib/film.ts`
+  `veilAt`) keeping the copy legible instead of a graph-specific scrim.
 - Foreground: the real product line, verbatim from the README — **"Memory that lets
   coding agents continue instead of start over."** — plus one supporting sentence, a
-  primary CTA ("Get started") and a secondary CTA (GitHub), over a directional scrim
-  that keeps the copy legible. On <940px the graph drops to 45% opacity and the scrim
-  goes vertical, so it reads as atmosphere behind the copy.
-- No stock photography, no illustration of "a robot." The graph *is* the hero image.
+  primary CTA ("Get started") and a secondary CTA (GitHub).
+- No stock photography, no illustration of "a robot." No memory-graph diagram either,
+  in the shipped version — the film sequence is the hero image.
 
 ### 3.2 The problem
 - Short, high-contrast section, dark background continues.
@@ -107,56 +102,36 @@ Each lap should pair copy with a **real terminal snippet** (actual CLI output st
 
 ## 4. Visual language
 
-- **Palette**: near-black base (`#0a0a0c`-ish), single saturated accent color for the graph/HUD elements. Avoid racing red as the accent specifically because it reads as "F1 cosplay" rather than "this product is precise" — lean toward an amber, cyan, or violet accent instead; final pick should get validated for dark/light contrast, not just picked by eye.
+- **Palette**: near-black base (`#0a0a0c`-ish), single saturated accent color for HUD/telemetry elements (badges, the lap counter, the scroll-progress bar). Avoid racing red as the accent specifically because it reads as "F1 cosplay" rather than "this product is precise" — lean toward an amber, cyan, or violet accent instead; final pick should get validated for dark/light contrast, not just picked by eye.
 - **Type**: monospace (e.g. JetBrains Mono / IBM Plex Mono) for anything that is literally data — CLI output, slip IDs, timestamps, trust levels. Clean sans (e.g. Inter) for narrative copy. This mirrors a real distinction in the product (typed, inspectable data vs. human-written text) rather than being an arbitrary style choice.
-- **Motif**: thin glowing connective lines / circuit-trace style borders, reused from the hero graph into card borders, section dividers, and the HUD strip — this is what makes the page feel like one system instead of a hero section bolted onto a generic body.
-- **Motion budget**: every effect has to carry product meaning, not just move. The
-  graph runs a single `requestAnimationFrame` loop (`components/MemoryGraph.tsx`)
-  driving four layers that compose into one "living memory" system:
+- **Motif**: the plan below (glowing connective lines reused from a hero graph into
+  card borders and the HUD strip) assumed the graph shipped. **Current design:** the
+  connective language instead comes from the film sequence itself (the continuous
+  camera move is the throughline) plus the two motifs that did ship, below.
+- **Motion budget** (as shipped): every effect has to carry product meaning, not
+  just move.
+  1. **Film** (`components/Film.tsx`) — the 150-frame sequence is painted to a
+     canvas and scrubbed by scroll position. Frame targets ease between
+     `data-film-cue` markers (smoothstep, not linear tracking) so the camera lands
+     on each cue instead of sliding past it, and settle to a whole decoded frame at
+     rest instead of holding a fractional dissolve. A directional veil/vignette/grain
+     sit over the plate; `prefers-reduced-motion` snaps straight to the nearest cue
+     with no chase.
+  2. **Beat cards** (`components/Beat.tsx`) — the four chapter cards rise in, hold
+     at full strength across the middle third of their scroll crossing, and sink
+     out, driven by scroll position written straight to `style` on the rAF tick
+     rather than through React state.
+  3. **Section spine nodes** (`components/SectionLink.tsx`) — each section junction
+     is a labelled node whose trace draws outward from the centre and pings once as
+     it enters view via `IntersectionObserver`. Replaces a plain `<hr>`.
+  4. **Scroll progress** — a thin bar under the header (`components/Header.tsx`),
+     keeping the HUD/telemetry language consistent with the lap counter.
 
-  1. **Idle drift** — each node travels its own slow sine orbit (independent
-     amplitude, speed and phase, so nothing moves in lockstep). Edge paths are
-     recomputed every frame from live node positions, so the lattice flexes as one
-     body instead of nodes sliding under fixed lines.
-  2. **Recall sweep** — every 7.5s a ring leaves the hub and lights each node as it
-     reaches it, ordered by distance. This is the one that *means* something: it is
-     literally a scoped recall radiating through the graph.
-  2b. **Scroll morph** — nodes travel between layout A and layout B as the hero
-     scrolls (see §3.1). Edge draw-in and the travelling pulses are computed in the
-     same loop rather than by CSS keyframes, because path lengths change as the
-     layout morphs and CSS dash animations would drift out of sync.
-  3. **Pointer parallax** — nodes carry a `depth` and swing toward the cursor
-     proportionally (hub least, outer nodes most), eased with a lerp so it glides.
-     Gives the constellation dimensionality without a 3D library.
-  4. **Hover** — the signature interaction: connected edges light cyan and a card
-     shows that kind's real README definition plus a real example call.
-
-  Plus two ambient CSS loops: a dashed scanner ring rotating on the hub (24s) and a
-  breathing hub glow (6.5s), and the original edge draw-in and travelling pulses.
-
-- **Two constraints learned while building this**, both worth preserving:
-  - CSS declarations beat SVG presentation attributes, so anything the rAF loop
-    writes must not also be styled in CSS. The sweep flash uses its own dedicated
-    circle rather than sharing the hover halo's `opacity`.
-  - The node entrance animation (`scale`) and the drift transform (`translate`)
-    cannot live on the same element — CSS animation wins. Hence the outer drift
-    `<g>` wrapping the inner `.gnode`.
-
-- **The motif runs page-wide**, not just in the hero — three layers carry it down
-  the page at decreasing intensity:
-
-  1. **Ambient constellation** (`components/AmbientField.tsx`) — a fixed full-viewport
-     canvas behind every section. Points drift and link to near neighbours within
-     132px; scrolling imparts damped momentum, so the field reacts to the reader.
-     Density scales with viewport area (capped at 64 points), it pauses on
-     `visibilitychange`, and points fade near the edges so wrap-around never pops a
-     link on screen.
-  2. **Section spine nodes** (`components/SectionLink.tsx`) — each section junction is
-     a labelled node whose trace draws outward from the centre and pings once as it
-     enters view. Replaces the old plain `<hr>`, so the page itself reads as a chain
-     of linked slips.
-  3. **Scroll progress** — a thin amber-to-cyan bar under the header, keeping the
-     HUD/telemetry language consistent with the lap counter.
+  The **memory graph** (idle drift, a recall sweep radiating from the hub, hover
+  cards) was designed and built as `components/MemoryGraph.tsx` but never wired
+  into the page, and has since been deleted as dead code. `components/AmbientField.tsx`
+  (a page-wide ambient particle canvas) was planned but never built. If either is
+  revisited, treat it as new work, not a restore.
 
 - Scroll-triggered reveals use `IntersectionObserver` (one-shot, not re-triggering,
   not scroll-jacked). Lists and grids stagger their children via `:nth-child`
@@ -167,16 +142,17 @@ Each lap should pair copy with a **real terminal snippet** (actual CLI output st
   never have painted one, so it snaps to the end state instead of easing. This was
   a real, measured bug — every reveal on the page was jumping. Keyframes with
   `both` fill hold the from-state through the delay and always play.
-- Respect `prefers-reduced-motion`: the graph should still render (static, fully drawn) with reveals appearing instantly rather than animating, for accessibility and to avoid the page being unusable for motion-sensitive visitors.
+- Respect `prefers-reduced-motion`: the film sequence still renders (snapped to the
+  nearest cue, no chase) with reveals appearing instantly rather than animating, for
+  accessibility and to avoid the page being unusable for motion-sensitive visitors.
 
 ## 5. Technical approach (Next.js specifics)
 
 - **App Router**, single route (`/`) for v1 — no need for multi-page complexity on a landing page.
-- Hero graph: implement as an SVG component if node/edge count stays small (~20 nodes) — SVG gives crisp text labels and easy hover targets on nodes for free, versus canvas which would need manual hit-testing. Fall back to canvas only if performance profiling shows SVG struggling.
-- Client components only where needed (the graph, scroll-reveal wrappers, copy-button) — everything else (static copy sections) should stay as server components to keep the page lightweight.
-- No animation library dependency required for v1 — CSS transitions/keyframes + `IntersectionObserver` + native SVG animation (`stroke-dashoffset`) cover everything described above without adding bundle weight. If node-graph physics (force-directed layout) turns out to need more than a fixed/hand-placed layout, that's the one place a small library (e.g. `d3-force` for layout math only, not rendering) might be justified — decide after seeing whether a static/curated layout looks good enough.
+- Client components only where needed (`Film`, `Header`, `Beat`, `Laps`, `SectionLink`, `Reveal`, `Terminal`, `Cue`) — everything else (static copy sections in `app/page.tsx`) stays a server component to keep the page lightweight.
+- No animation library dependency required — CSS keyframes + `IntersectionObserver` + a couple of small `requestAnimationFrame` loops (`Film`, `Beat`, `lib/raf.ts`) cover everything described above without adding bundle weight.
 - Fonts via `next/font` (self-hosted, no external request) for the monospace/sans pairing.
-- Images/GIFs: avoid raster GIFs for the graph animation specifically (file size, no crispness at different DPIs) — everything in the hero should be vector/code-driven so it stays sharp and small. Raster assets (if any — e.g. a subtle background texture) should be `next/image` optimized and used sparingly, not as the primary visual.
+- The hero and every section backdrop is a raster WebP frame sequence (`public/frames/{hd,sm}`, built by `scripts/build-frames.sh`), not vector/code-driven — the opposite of the original plan's "avoid raster for the hero" guidance. Two sets (`hd` 1920×1080 every frame, `sm` 1280×720 every other frame) keep phones from pulling the desktop sequence; see `lib/film.ts` for the fetch-order and blend strategy that keeps this smooth without a graph or canvas particle system.
 
 ## 6. Content accuracy checklist
 
