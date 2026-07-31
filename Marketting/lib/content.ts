@@ -12,6 +12,7 @@ export const LOSSES: { lead: string; rest: string }[] = [
   { lead: "The failure mode", rest: "that should not be repeated" },
   { lead: "The exact next step", rest: "after context compaction" },
   { lead: "The user's preference", rest: "that is specific to this project" },
+  { lead: "The verified fact", rest: "re-checked from scratch instead of recalled" },
 ];
 
 export const TRUST = [
