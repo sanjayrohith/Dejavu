@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 export const LEGACY_SCOPE = "legacy:global";
@@ -77,28 +77,46 @@ export function findRepoRoot(start: string): string | null {
 }
 
 /**
- * Resolve the real git directory for a checkout root.
+ * The git directory belonging to *this* checkout.
  *
- * Handles the plain `.git/` directory, worktree/submodule `gitdir:`
- * pointer files, and the `commondir` indirection that points a linked
- * worktree back at the shared object store. Returns null when `root` is
- * not a checkout or the pointer cannot be followed.
+ * Handles the plain `.git/` directory and the `gitdir:` pointer file used
+ * by linked worktrees and submodules. Deliberately does not follow
+ * `commondir`: per-worktree state — HEAD above all — lives here, and a
+ * linked worktree pointed at another branch must not report the main
+ * checkout's HEAD. Use {@link findCommonGitDir} for shared state.
  */
 export function findGitDir(root: string): string | null {
   try {
     const dotGit = join(root, ".git");
-    if (existsSync(join(dotGit, "config"))) return dotGit;
+    // A directory is the git dir itself; a file is a `gitdir:` pointer.
+    if (statSync(dotGit).isDirectory()) return dotGit;
     const pointer = readFileSync(dotGit, "utf8").match(/^gitdir:\s*(.+)\s*$/m)?.[1];
     if (!pointer) return null;
-    let gitDir = isAbsolute(pointer) ? pointer : resolve(root, pointer);
-    const commonDirFile = join(gitDir, "commondir");
-    if (existsSync(commonDirFile)) {
-      const common = readFileSync(commonDirFile, "utf8").trim();
-      gitDir = isAbsolute(common) ? common : resolve(gitDir, common);
-    }
-    return gitDir;
+    return isAbsolute(pointer) ? pointer : resolve(root, pointer);
   } catch {
     return null;
+  }
+}
+
+/**
+ * The git directory holding state shared by every worktree — config, and
+ * therefore `origin`, which is what repository scope is derived from.
+ *
+ * For an ordinary checkout this is the same directory {@link findGitDir}
+ * returns. For a linked worktree it follows `commondir` back to the main
+ * git directory, so two worktrees of one repository resolve to the same
+ * memory scope.
+ */
+export function findCommonGitDir(root: string): string | null {
+  const gitDir = findGitDir(root);
+  if (!gitDir) return null;
+  try {
+    const commonDirFile = join(gitDir, "commondir");
+    if (!existsSync(commonDirFile)) return gitDir;
+    const common = readFileSync(commonDirFile, "utf8").trim();
+    return isAbsolute(common) ? common : resolve(gitDir, common);
+  } catch {
+    return gitDir;
   }
 }
 
@@ -108,7 +126,7 @@ function findGitRoot(start: string): string | null {
 
 function readOrigin(root: string): string | null {
   try {
-    const gitDir = findGitDir(root);
+    const gitDir = findCommonGitDir(root);
     if (!gitDir) return null;
     const config = readFileSync(join(gitDir, "config"), "utf8");
     const section = config.match(/\[remote\s+"origin"\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? "";

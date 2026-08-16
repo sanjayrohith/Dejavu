@@ -39,6 +39,30 @@ describe("automatic memory context", () => {
     expect(contextA.source).toBe("git-remote");
   });
 
+  test("a linked worktree shares the main checkout's scope", () => {
+    delete process.env.DEJAVU_SCOPE;
+    const parent = mkdtempSync(join(tmpdir(), "dejavu-context-"));
+    dirs.push(parent);
+    const main = join(parent, "main");
+    const linked = join(parent, "linked");
+
+    // A main checkout, and a linked worktree whose .git is a pointer file
+    // with a commondir back to the shared git directory. Scope comes from
+    // origin, which lives in that shared config, so both must agree.
+    mkdirSync(join(main, ".git"), { recursive: true });
+    writeFileSync(
+      join(main, ".git", "config"),
+      `[core]\n\trepositoryformatversion = 0\n[remote "origin"]\n\turl = https://github.com/acme/project.git\n`,
+    );
+    mkdirSync(join(main, ".git", "worktrees", "linked"), { recursive: true });
+    writeFileSync(join(main, ".git", "worktrees", "linked", "commondir"), "../..\n");
+    mkdirSync(linked, { recursive: true });
+    writeFileSync(join(linked, ".git"), `gitdir: ${join(main, ".git", "worktrees", "linked")}\n`);
+
+    expect(currentMemoryContext(linked).scope).toBe(currentMemoryContext(main).scope);
+    expect(currentMemoryContext(linked).source).toBe("git-remote");
+  });
+
   test("different remotes never share a retrieval scope", () => {
     delete process.env.DEJAVU_SCOPE;
     const a = repo("project", "https://github.com/acme/one.git");

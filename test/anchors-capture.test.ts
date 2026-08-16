@@ -125,6 +125,38 @@ describe("HEAD resolution", () => {
     if (git.error || git.status !== 0) return; // no git, or no commits yet
     expect(headCommit(root)).toBe(git.stdout.trim());
   });
+
+  test("a linked worktree reports its own HEAD, not the main checkout's", () => {
+    // HEAD is per-worktree state. Following `commondir` — which is correct for
+    // config, and therefore for scope — would report the main checkout's
+    // branch here and silently stamp every anchor with the wrong commit.
+    const dir = mkdtempSync(join(tmpdir(), "dejavu-worktree-"));
+    dirs.push(dir);
+    const main = join(dir, "main");
+    const linked = join(dir, "linked");
+    const run = (args: string[], cwd: string) =>
+      spawnSync("git", args, { cwd, encoding: "utf8" });
+
+    mkdirSync(main, { recursive: true });
+    if (run(["init", "-q", "-b", "main", "."], main).status !== 0) return; // no git available
+    run(["config", "user.email", "test@example.com"], main);
+    run(["config", "user.name", "test"], main);
+    writeFileSync(join(main, "file.txt"), "one\n");
+    run(["add", "-A"], main);
+    run(["commit", "-qm", "first"], main);
+    const first = run(["rev-parse", "HEAD"], main).stdout.trim();
+
+    writeFileSync(join(main, "file.txt"), "two\n");
+    run(["commit", "-qam", "second"], main);
+    const second = run(["rev-parse", "HEAD"], main).stdout.trim();
+    if (run(["worktree", "add", "-q", "--detach", linked, first], main).status !== 0) return;
+
+    expect(first).not.toBe(second);
+    expect(headCommit(main)).toBe(second);
+    expect(headCommit(linked)).toBe(first);
+
+    run(["worktree", "remove", "--force", linked], main);
+  });
 });
 
 describe("anchor root", () => {
