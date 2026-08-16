@@ -177,6 +177,8 @@ export interface RecallOptions {
   /** Approximate output budget. Retrieval stops before exceeding it. */
   maxTokens?: number;
   kinds?: MemoryKind[];
+  /** Override the instance default for checking anchored slips for drift. */
+  checkAnchorDrift?: boolean;
 }
 
 export interface RecallResult {

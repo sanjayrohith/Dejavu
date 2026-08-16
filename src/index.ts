@@ -28,7 +28,14 @@ import { ulid } from "./ulid.ts";
 import { deliverPiTurn } from "./pi-turn.ts";
 import { rankForNextAgent } from "./next-agent.ts";
 import { currentMemoryContext, type MemoryContext } from "./context.ts";
-import { anchorRoot, captureAnchors, checkAnchors } from "./anchors.ts";
+import {
+  anchorRoot,
+  blobShaOf,
+  captureAnchors,
+  checkAnchor,
+  checkAnchors,
+  rollupDrift,
+} from "./anchors.ts";
 import type {
   Anchor,
   AnchorState,
@@ -44,6 +51,7 @@ import type {
   RecallAssessment,
   HandoffStatus,
   LinkKind,
+  NextAgentHit,
 } from "./types.ts";
 
 export type {
@@ -230,6 +238,9 @@ export class Dejavu {
       result = { query, traceId: "", hits: unranked, readFirst: [], activeHandoff };
     }
     result.hits = fitRecallBudget(result.hits, options.maxTokens ?? 1200).slice(0, limit);
+    // Drift is checked after budgeting so we only hash files for memory the
+    // agent will actually see.
+    this.labelDrift(result.hits, options.checkAnchorDrift);
     result.readFirst = result.readFirst.filter((hit) =>
       result.hits.some((candidate) => candidate.slip.id === hit.slip.id)
     );
@@ -405,6 +416,30 @@ export class Dejavu {
       this.storage.insertHandoff(h);
     }
     return h;
+  }
+
+  /**
+   * Attach anchor drift to a set of hits, in place.
+   *
+   * One indexed query covers the whole packet; anchored files are hashed
+   * at most once each. When nothing in the packet is anchored — the case
+   * for every database written before anchors existed — this costs one
+   * query that returns no rows, and no hit is annotated at all.
+   */
+  private labelDrift(hits: NextAgentHit[], override?: boolean): void {
+    const enabled = override ?? this.options.checkAnchorDrift ?? true;
+    if (!enabled || hits.length === 0) return;
+    const bySlip = this.storage.anchorsForSlips(hits.map((hit) => hit.slip.id));
+    if (bySlip.size === 0) return;
+
+    const cache = new Map<string, ReturnType<typeof blobShaOf>>();
+    for (const hit of hits) {
+      const anchors = bySlip.get(hit.slip.id);
+      if (!anchors || anchors.length === 0) continue;
+      const states = anchors.map((anchor) => checkAnchor(anchor, this.anchorRoot, cache));
+      hit.anchors = states;
+      hit.drift = rollupDrift(states);
+    }
   }
 
   /** Record query + ids, without duplicating memory text, for later evaluation. */
