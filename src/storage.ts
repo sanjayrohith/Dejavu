@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { mkdirSync } from "node:fs";
 import type {
+  Anchor,
   Slip,
   SlipState,
   Link,
@@ -68,6 +69,26 @@ CREATE TABLE IF NOT EXISTS links (
 );
 
 CREATE INDEX IF NOT EXISTS idx_links_to ON links(to_id);
+
+-- Pointers from a slip to the code it is about. Immutable like slips:
+-- rows are inserted once and never updated. The symbol column is stored as
+-- '' rather than NULL so the primary key actually enforces uniqueness --
+-- SQLite permits NULLs in a non-INTEGER primary key, which would otherwise
+-- let duplicate anchors through.
+CREATE TABLE IF NOT EXISTS anchors (
+  slip_id    TEXT NOT NULL,
+  path       TEXT NOT NULL,
+  symbol     TEXT NOT NULL DEFAULT '',
+  line       INTEGER,
+  blob_sha   TEXT NOT NULL,
+  commit_sha TEXT,
+  created_at INTEGER NOT NULL,
+  PRIMARY KEY (slip_id, path, symbol),
+  FOREIGN KEY (slip_id) REFERENCES slips(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_anchors_path ON anchors(path);
+CREATE INDEX IF NOT EXISTS idx_anchors_slip ON anchors(slip_id);
 
 CREATE TABLE IF NOT EXISTS handoffs (
   id          TEXT PRIMARY KEY,
@@ -203,6 +224,28 @@ function rowToHandoff(r: HandoffRow): Handoff {
     automatic: r.automatic === 1,
     createdAt: r.created_at,
     resolvedAt: r.resolved_at,
+  };
+}
+
+interface AnchorRow {
+  slip_id: string;
+  path: string;
+  symbol: string;
+  line: number | null;
+  blob_sha: string;
+  commit_sha: string | null;
+  created_at: number;
+}
+
+function rowToAnchor(r: AnchorRow): Anchor {
+  return {
+    slipId: r.slip_id,
+    path: r.path,
+    symbol: r.symbol === "" ? null : r.symbol,
+    line: r.line,
+    blobSha: r.blob_sha,
+    commit: r.commit_sha,
+    createdAt: r.created_at,
   };
 }
 
@@ -429,6 +472,97 @@ export class Storage {
       slip: rowToSlip(r),
       score: r.score,
     }));
+  }
+
+  // ----- anchors -----
+
+  /**
+   * Store a code anchor. Insert-or-ignore, because anchors are immutable:
+   * re-anchoring the same slip to the same path and symbol is a no-op, not
+   * an update of the captured blob id.
+   */
+  insertAnchor(a: Anchor): void {
+    this.db
+      .prepare(
+        `INSERT OR IGNORE INTO anchors (slip_id, path, symbol, line, blob_sha, commit_sha, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(a.slipId, a.path, a.symbol ?? "", a.line, a.blobSha, a.commit, a.createdAt);
+  }
+
+  anchorsFor(slipId: string): Anchor[] {
+    const rows = this.db
+      .prepare(`SELECT * FROM anchors WHERE slip_id = ? ORDER BY path ASC, symbol ASC`)
+      .all(slipId) as AnchorRow[];
+    return rows.map(rowToAnchor);
+  }
+
+  /**
+   * Anchors for a batch of slips, as one indexed query.
+   *
+   * Recall calls this once per packet, so it must not become a query per
+   * hit. Slips with no anchors are simply absent from the map.
+   */
+  anchorsForSlips(slipIds: string[]): Map<string, Anchor[]> {
+    const grouped = new Map<string, Anchor[]>();
+    if (slipIds.length === 0) return grouped;
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM anchors
+         WHERE slip_id IN (SELECT value FROM json_each(?))
+         ORDER BY path ASC, symbol ASC`,
+      )
+      .all(JSON.stringify(slipIds)) as AnchorRow[];
+    for (const row of rows) {
+      const anchor = rowToAnchor(row);
+      const bucket = grouped.get(anchor.slipId);
+      if (bucket) bucket.push(anchor);
+      else grouped.set(anchor.slipId, [anchor]);
+    }
+    return grouped;
+  }
+
+  /**
+   * Reverse lookup: non-expired slips anchored to any of `paths`.
+   *
+   * Scope filtering matches recall exactly, including deliberate global
+   * slips, so file-shaped retrieval cannot leak another repository's
+   * memory into this one.
+   */
+  slipsAnchoredTo(
+    paths: string[],
+    scope: string,
+    includeLegacy = false,
+    limit = 20,
+  ): Slip[] {
+    if (paths.length === 0) return [];
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT s.* FROM anchors a
+         JOIN slips s ON s.id = a.slip_id
+         WHERE a.path IN (SELECT value FROM json_each(?))
+           AND s.state != 'expired'
+           AND (s.scope = ? OR s.scope = 'global' OR (? AND s.scope = 'legacy:global'))
+         ORDER BY s.created_at DESC
+         LIMIT ?`,
+      )
+      .all(JSON.stringify(paths), scope, includeLegacy ? 1 : 0, limit) as SlipRow[];
+    return rows.map(rowToSlip);
+  }
+
+  /** Every non-expired anchored slip in scope, newest first. */
+  listAnchoredSlips(scope: string, includeLegacy = false, limit = 100): Slip[] {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT s.* FROM anchors a
+         JOIN slips s ON s.id = a.slip_id
+         WHERE s.state != 'expired'
+           AND (s.scope = ? OR s.scope = 'global' OR (? AND s.scope = 'legacy:global'))
+         ORDER BY s.created_at DESC
+         LIMIT ?`,
+      )
+      .all(scope, includeLegacy ? 1 : 0, limit) as SlipRow[];
+    return rows.map(rowToSlip);
   }
 
   // ----- links -----
