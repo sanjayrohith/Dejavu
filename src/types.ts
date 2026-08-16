@@ -85,12 +85,67 @@ export interface Handoff {
   resolvedAt: number | null;
 }
 
+/**
+ * How an anchored memory relates to the code it was written about.
+ *
+ * Wall-clock age is a proxy for staleness; this is the real signal. A
+ * pitfall about a function is suspect the moment that function changes,
+ * whether it changed an hour ago or a year ago.
+ */
+export type AnchorStatus =
+  /** The anchored file is byte-identical to what it was at capture time. */
+  | "verified"
+  /** The anchored file still exists, but its contents changed. */
+  | "drifted"
+  /** The anchored path no longer exists. */
+  | "orphaned"
+  /** Could not be checked (outside a checkout, unreadable, or too large). */
+  | "unknown";
+
+/** A parsed `path[:line][#symbol]` anchor request, before capture. */
+export interface AnchorSpec {
+  /** Repository-relative POSIX path. */
+  path: string;
+  /** 1-based line, if the author pointed at one. */
+  line: number | null;
+  /** Symbol name, if the author named one. */
+  symbol: string | null;
+}
+
+/**
+ * An immutable pointer from a slip to the code it describes.
+ *
+ * `blobSha` is a real git blob object id (sha1 over `blob <len>\0<bytes>`),
+ * so it is comparable with `git hash-object` and stable across checkouts.
+ * Like slips, anchors are written once and never edited.
+ */
+export interface Anchor extends AnchorSpec {
+  slipId: string;
+  /** git blob id of the file contents at capture time. */
+  blobSha: string;
+  /** HEAD commit at capture time, when it could be read. */
+  commit: string | null;
+  createdAt: number;
+}
+
+/** An anchor plus the verdict from checking it against the working tree. */
+export interface AnchorState {
+  anchor: Anchor;
+  status: AnchorStatus;
+  /** Short, agent-readable reason for the status. */
+  detail: string;
+}
+
 export interface RecallHit {
   slip: Slip;
   /** Raw FTS5 BM25 score, lower is better. */
   score: number;
   /** Bucketed for the agent: high / medium / low. */
   trust: Trust;
+  /** Checked anchors, when this slip has any. Absent for unanchored slips. */
+  anchors?: AnchorState[];
+  /** Worst anchor status across `anchors`. Null when the slip is unanchored. */
+  drift?: AnchorStatus | null;
 }
 
 export type NextAgentRead = "first" | "maybe" | "skip";
@@ -135,6 +190,15 @@ export interface RecallResult {
   activeHandoff: Handoff | null;
 }
 
+/** Result of a reverse lookup: memory anchored to a set of files. */
+export interface TouchingResult {
+  /** The repository-relative paths that were looked up. */
+  paths: string[];
+  /** Content-free receipt id, same contract as `recall`. */
+  traceId: string | null;
+  hits: RecallHit[];
+}
+
 /** Retrieval receipt without duplicated memory text, used for real behavior evals. */
 export type RecallAssessment = "useful" | "wrong" | "missed" | "no_memory_needed";
 
@@ -158,6 +222,12 @@ export interface RememberOpts {
   kind?: MemoryKind;
   /** If set, this slip explicitly links to one or more existing slips. */
   links?: Array<{ toId: string; kind: LinkKind }>;
+  /**
+   * Code this memory is about, as `path[:line][#symbol]` strings or parsed
+   * specs. Anchored memory reports drift when the code moves underneath it.
+   * Paths are resolved against the repository root and must exist.
+   */
+  anchors?: Array<string | AnchorSpec>;
   /** Override session id. Default: derived from env / cwd / process. */
   sessionId?: string;
   /** Override author. Default: env DEJAVU_AUTHOR or "unknown-agent". */
