@@ -41,7 +41,8 @@
     "cli": "bun run src/cli.ts",
     "mcp": "bun run src/mcp.ts",
     "mcp:shared": "bun run src/shared-mcp.ts",
-    "check": "bun test ./test && bun run typecheck && bun run bench/recall.ts && bun run bench:behavior",
+    "check": "bun test ./test && bun run typecheck && bun run bench/recall.ts && bun run bench:anchors && bun run bench:behavior",
+    "bench:anchors": "bun run bench/anchors.ts",
     "bench:behavior": "bun run bench/behavior/run.ts"
   },
   "dependencies": {
