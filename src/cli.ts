@@ -21,7 +21,8 @@
 
 import { dirname } from "node:path";
 import { existsSync } from "node:fs";
-import { Dejavu, SharedDejavu, defaultDbPath } from "./index.ts";
+import { Dejavu, SharedDejavu, defaultDbPath, driftIsSuspect, rollupDrift } from "./index.ts";
+import { formatTouching } from "./format.ts";
 import { currentSessionId } from "./lifecycle.ts";
 
 function usage(): never {
@@ -33,7 +34,10 @@ Usage:
   dejavu mcp                   Run the MCP server (stdio — for agent clients)
   dejavu verify                Check schema, SQLite integrity, and FTS coverage
   dejavu recall [query] [--tokens=N] [--kind=decision,pitfall]
-  dejavu remember <text> [--keep] [--kind=decision]
+  dejavu remember <text> [--keep] [--kind=decision] [--anchor=src/a.ts:42#fn]
+  dejavu touching <path...>     Memory anchored to these files
+  dejavu touching --diff        Memory anchored to your uncommitted changes
+  dejavu anchors [--drifted]    Anchored memory and whether its code moved
   dejavu handoff <summary>     Leave one active handoff for this session
   dejavu resolve <id> [completed|abandoned]
   dejavu link <from> <supersedes|contradicts|related> <to>
@@ -183,13 +187,90 @@ function cmdRecall(args: string[]): void {
 function cmdRemember(args: string[]): void {
   const keep = args.includes("--keep");
   const kindArg = args.find((arg) => arg.startsWith("--kind="))?.split("=")[1] as import("./types.ts").MemoryKind | undefined;
-  const text = args.filter((arg) => arg !== "--keep" && !arg.startsWith("--kind=")).join(" ").trim();
-  if (!text) throw new Error("usage: dejavu remember <text> [--keep] [--kind=decision]");
+  const anchors = args
+    .filter((arg) => arg.startsWith("--anchor="))
+    .map((arg) => arg.slice("--anchor=".length))
+    .filter((value) => value.length > 0);
+  const text = args
+    .filter((arg) => arg !== "--keep" && !arg.startsWith("--kind=") && !arg.startsWith("--anchor="))
+    .join(" ")
+    .trim();
+  if (!text) throw new Error("usage: dejavu remember <text> [--keep] [--kind=decision] [--anchor=path:line#symbol]");
   const d = new Dejavu({ path: dbPath(), skipGc: true });
-  const slip = d.remember(text, { kind: kindArg });
-  if (keep) d.keep([slip.id]);
-  console.log(`${keep ? "kept" : "drafted"} ${slip.kind} ${slip.id} in ${slip.scope}`);
-  d.close();
+  try {
+    const slip = d.remember(text, { kind: kindArg, anchors });
+    if (keep) d.keep([slip.id]);
+    console.log(`${keep ? "kept" : "drafted"} ${slip.kind} ${slip.id} in ${slip.scope}`);
+    for (const anchor of d.anchorsFor(slip.id)) {
+      console.log(`  anchored to ${anchor.path}@${anchor.blobSha.slice(0, 8)}`);
+    }
+  } finally {
+    d.close();
+  }
+}
+
+/** Repository-relative paths of the working tree's uncommitted changes. */
+function changedPaths(root: string): string[] {
+  const git = Bun.spawnSync(["git", "diff", "--name-only", "HEAD"], { cwd: root });
+  if (!git.success) {
+    throw new Error("dejavu touching --diff: could not read the diff (is this a git checkout with commits?)");
+  }
+  return new TextDecoder()
+    .decode(git.stdout)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+function cmdTouching(args: string[]): void {
+  const d = new Dejavu({ path: dbPath(), skipGc: true });
+  try {
+    const paths = args.includes("--diff")
+      ? changedPaths(d.anchorRoot)
+      : args.filter((arg) => !arg.startsWith("--"));
+    if (paths.length === 0) {
+      console.log(
+        args.includes("--diff")
+          ? "(no uncommitted changes)"
+          : "usage: dejavu touching <path...> | dejavu touching --diff",
+      );
+      return;
+    }
+    console.log(formatTouching(d.touching(paths), d.storage));
+  } finally {
+    d.close();
+  }
+}
+
+function cmdAnchors(args: string[]): void {
+  const onlyDrifted = args.includes("--drifted");
+  const d = new Dejavu({ path: dbPath(), skipGc: true });
+  try {
+    const slips = d.storage.listAnchoredSlips(d.scope, d.options.includeLegacy);
+    const tally = { verified: 0, drifted: 0, orphaned: 0, unknown: 0 };
+    let shown = 0;
+
+    for (const slip of slips) {
+      const states = d.anchorStates(slip.id);
+      const drift = rollupDrift(states);
+      if (drift) tally[drift] += 1;
+      if (onlyDrifted && !driftIsSuspect(drift)) continue;
+      shown += 1;
+      console.log(`${slip.id}  ${slip.kind.padEnd(10)}  ${drift ?? "unanchored"}`);
+      console.log(`  ${slip.text.replace(/\n/g, "\n  ")}`);
+      for (const state of states) console.log(`  ${state.detail}`);
+      console.log();
+    }
+
+    if (shown === 0) {
+      console.log(onlyDrifted ? "(no anchored memory has drifted)" : "(no anchored memory in this scope)");
+    }
+    console.log(
+      `scope: ${d.scope}\nanchored: ${slips.length}  verified: ${tally.verified}  drifted: ${tally.drifted}  orphaned: ${tally.orphaned}  unknown: ${tally.unknown}`,
+    );
+  } finally {
+    d.close();
+  }
 }
 
 function cmdWriteHandoff(args: string[]): void {
@@ -281,6 +362,20 @@ function cmdShow(args: string[]): void {
   }
   console.log(fmtSlip(s));
   console.log(`  used: ${s.usedCount}, wrong: ${s.wrongCount}`);
+  const anchors = d.anchorStates(s.id);
+  if (anchors.length > 0) {
+    console.log(`  anchors:`);
+    for (const state of anchors) {
+      const where = state.anchor.symbol
+        ? `${state.anchor.path}#${state.anchor.symbol}`
+        : state.anchor.line
+          ? `${state.anchor.path}:${state.anchor.line}`
+          : state.anchor.path;
+      const commit = state.anchor.commit ? ` @ ${state.anchor.commit.slice(0, 8)}` : "";
+      console.log(`    ${state.status.padEnd(9)} ${where}${commit}`);
+      console.log(`      ${state.detail}`);
+    }
+  }
   const links = d.storage.linksFrom(s.id);
   if (links.length > 0) {
     console.log(`  links:`);
@@ -485,6 +580,12 @@ switch (cmd) {
     break;
   case "remember":
     cmdRemember(rest);
+    break;
+  case "touching":
+    cmdTouching(rest);
+    break;
+  case "anchors":
+    cmdAnchors(rest);
     break;
   case "handoff":
     cmdWriteHandoff(rest);
