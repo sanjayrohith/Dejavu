@@ -59,7 +59,14 @@ export function currentMemoryContext(cwd = process.cwd()): MemoryContext {
   };
 }
 
-function findGitRoot(start: string): string | null {
+/**
+ * Nearest enclosing checkout root, walking up from `start`.
+ *
+ * Exported because anchors resolve their paths against the same root the
+ * scope is derived from — an anchor written from `src/` and one written
+ * from the repository root must agree on what `src/auth.ts` means.
+ */
+export function findRepoRoot(start: string): string | null {
   let cursor = canonical(start);
   while (true) {
     if (existsSync(join(cursor, ".git"))) return cursor;
@@ -69,20 +76,40 @@ function findGitRoot(start: string): string | null {
   }
 }
 
-function readOrigin(root: string): string | null {
+/**
+ * Resolve the real git directory for a checkout root.
+ *
+ * Handles the plain `.git/` directory, worktree/submodule `gitdir:`
+ * pointer files, and the `commondir` indirection that points a linked
+ * worktree back at the shared object store. Returns null when `root` is
+ * not a checkout or the pointer cannot be followed.
+ */
+export function findGitDir(root: string): string | null {
   try {
     const dotGit = join(root, ".git");
-    let gitDir = dotGit;
-    if (!existsSync(join(dotGit, "config"))) {
-      const pointer = readFileSync(dotGit, "utf8").match(/^gitdir:\s*(.+)\s*$/m)?.[1];
-      if (!pointer) return null;
-      gitDir = isAbsolute(pointer) ? pointer : resolve(root, pointer);
-      const commonDirFile = join(gitDir, "commondir");
-      if (existsSync(commonDirFile)) {
-        const common = readFileSync(commonDirFile, "utf8").trim();
-        gitDir = isAbsolute(common) ? common : resolve(gitDir, common);
-      }
+    if (existsSync(join(dotGit, "config"))) return dotGit;
+    const pointer = readFileSync(dotGit, "utf8").match(/^gitdir:\s*(.+)\s*$/m)?.[1];
+    if (!pointer) return null;
+    let gitDir = isAbsolute(pointer) ? pointer : resolve(root, pointer);
+    const commonDirFile = join(gitDir, "commondir");
+    if (existsSync(commonDirFile)) {
+      const common = readFileSync(commonDirFile, "utf8").trim();
+      gitDir = isAbsolute(common) ? common : resolve(gitDir, common);
     }
+    return gitDir;
+  } catch {
+    return null;
+  }
+}
+
+function findGitRoot(start: string): string | null {
+  return findRepoRoot(start);
+}
+
+function readOrigin(root: string): string | null {
+  try {
+    const gitDir = findGitDir(root);
+    if (!gitDir) return null;
     const config = readFileSync(join(gitDir, "config"), "utf8");
     const section = config.match(/\[remote\s+"origin"\]([\s\S]*?)(?=\n\[|$)/)?.[1] ?? "";
     return section.match(/^\s*url\s*=\s*(.+?)\s*$/m)?.[1] ?? null;
@@ -103,6 +130,11 @@ function normalizeRemote(remote: string): string {
 function remoteRepositoryName(normalizedRemote: string): string {
   const name = normalizedRemote.split("/").filter(Boolean).at(-1);
   return name || "repository";
+}
+
+/** Resolve symlinks where possible, falling back to a plain absolute path. */
+export function canonicalPath(path: string): string {
+  return canonical(path);
 }
 
 function canonical(path: string): string {
