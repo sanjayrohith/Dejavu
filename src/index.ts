@@ -28,7 +28,10 @@ import { ulid } from "./ulid.ts";
 import { deliverPiTurn } from "./pi-turn.ts";
 import { rankForNextAgent } from "./next-agent.ts";
 import { currentMemoryContext, type MemoryContext } from "./context.ts";
+import { anchorRoot, captureAnchors, checkAnchors } from "./anchors.ts";
 import type {
+  Anchor,
+  AnchorState,
   Slip,
   Handoff,
   HandoffInput,
@@ -63,6 +66,25 @@ export type {
 
 export { defaultDbPath } from "./storage.ts";
 export { VERSION } from "./version.ts";
+export {
+  anchorRoot,
+  captureAnchor,
+  captureAnchors,
+  checkAnchor,
+  checkAnchors,
+  driftIsSuspect,
+  gitBlobSha,
+  parseAnchorSpec,
+  relativeAnchorPath,
+  rollupDrift,
+} from "./anchors.ts";
+export type {
+  Anchor,
+  AnchorSpec,
+  AnchorState,
+  AnchorStatus,
+  TouchingResult,
+} from "./types.ts";
 export { SharedDejavu } from "./shared-client/index.ts";
 export type { SharedDejavuOptions, SharedRememberOptions, SharedHandoffOptions } from "./shared-client/index.ts";
 export type {
@@ -90,6 +112,20 @@ export interface DejavuOptions extends StorageOptions {
   /** Skip auto-GC of expired drafts on init. Default: false. */
   skipGc?: boolean;
   /**
+   * Directory that code anchors resolve against. Defaults to the nearest
+   * checkout root, falling back to the current directory. Tests and
+   * harnesses override it to point at a fixture tree.
+   */
+  anchorRoot?: string;
+  /**
+   * Check anchored slips for drift during recall. Default: true.
+   *
+   * The check is one indexed query plus a hash of each distinct anchored
+   * file in the packet, and it is skipped entirely when no hit is
+   * anchored — so an unanchored database pays a single empty query.
+   */
+  checkAnchorDrift?: boolean;
+  /**
    * Disable auto-rollup of chain-shaped kept slips into a session handoff.
    *
    * Default: false (auto-rollup ENABLED). When a slip is chain-shaped
@@ -115,6 +151,14 @@ export class Dejavu {
   readonly options: DejavuOptions;
   readonly context: MemoryContext;
   readonly scope: string;
+  /**
+   * Directory anchor paths are resolved against.
+   *
+   * Deliberately the checkout root rather than `context.root`: an explicit
+   * DEJAVU_SCOPE changes which memories are visible, not what
+   * `src/auth.ts` refers to.
+   */
+  readonly anchorRoot: string;
 
   constructor(opts: DejavuOptions = {}) {
     this.storage = new Storage(opts);
@@ -125,6 +169,7 @@ export class Dejavu {
     const derived = currentMemoryContext();
     this.context = opts.scope ? { ...derived, scope: opts.scope, source: "env" } : derived;
     this.scope = this.context.scope;
+    this.anchorRoot = opts.anchorRoot ?? anchorRoot();
     if (!opts.skipGc) this.gc();
   }
 
@@ -199,14 +244,26 @@ export class Dejavu {
   /**
    * Jot a new draft slip. Returns the slip.
    * Drafts auto-expire after 24h unless promoted via keep().
+   *
+   * `opts.anchors` points the memory at the code it is about, as
+   * `path[:line][#symbol]` strings. Anchors are captured *before* the slip
+   * is written, so a bad path throws without leaving a half-written
+   * memory behind.
    */
   remember(text: string, opts: RememberOpts = {}): Slip {
     const trimmed = text.trim();
     if (!trimmed) throw new Error("dejavu.remember: text is empty");
 
     const now = Date.now();
+    const id = ulid(now);
+    const anchors = captureAnchors(opts.anchors ?? [], {
+      slipId: id,
+      root: this.anchorRoot,
+      createdAt: now,
+    });
+
     const slip: Slip = {
-      id: ulid(now),
+      id,
       sessionId: opts.sessionId ?? currentSessionId(),
       authoredBy: opts.authoredBy ?? currentAuthor(),
       scope: opts.scope ?? this.scope,
@@ -221,6 +278,7 @@ export class Dejavu {
       wrongCount: 0,
     };
     this.storage.insertSlip(slip);
+    for (const anchor of anchors) this.storage.insertAnchor(anchor);
 
     if (opts.links) {
       for (const link of opts.links) {
@@ -474,6 +532,16 @@ export class Dejavu {
 
   get(id: string): Slip | null {
     return this.storage.getSlip(id);
+  }
+
+  /** Anchors recorded for a slip, as written. No drift check. */
+  anchorsFor(id: string): Anchor[] {
+    return this.storage.anchorsFor(id);
+  }
+
+  /** Anchors for a slip, each checked against the current working tree. */
+  anchorStates(id: string): AnchorState[] {
+    return checkAnchors(this.storage.anchorsFor(id), this.anchorRoot);
   }
 
   listSession(sessionId?: string): Slip[] {
