@@ -3,7 +3,7 @@
  * dejavu MCP server — local stdio.
  *
  * Agent tools:
- *   recall / remember / handoff / resolve_handoff
+ *   recall / touching / remember / handoff / resolve_handoff
  *   signal / link / assess
  *
  * Optional local coordination tools:
@@ -28,7 +28,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Dejavu, defaultDbPath } from "./index.ts";
-import { formatRecall, formatRecents } from "./format.ts";
+import { formatRecall, formatRecents, formatTouching } from "./format.ts";
 import { VERSION } from "./version.ts";
 
 /**
@@ -87,6 +87,15 @@ export function dispatch(
         const r = dejavu.recall(query, { limit, maxTokens, kinds });
         return { text: formatRecall(r, dejavu.storage) };
       }
+      case "touching": {
+        const paths = Array.isArray(args.paths) ? args.paths.map(String) : [];
+        const limit = Number(args.limit ?? 20);
+        if (paths.length === 0) {
+          return { text: "error: paths is required (one or more file paths)", isError: true };
+        }
+        state.recallSeen = true;
+        return { text: formatTouching(dejavu.touching(paths, { limit }), dejavu.storage) };
+      }
       case "remember": {
         const text = String(args.text ?? "");
         const tags = args.tags as string[] | undefined;
@@ -94,11 +103,12 @@ export function dispatch(
         const keep = Boolean(args.keep ?? false);
         const supersedes = Array.isArray(args.supersedes) ? args.supersedes.map(String) : [];
         const contradicts = Array.isArray(args.contradicts) ? args.contradicts.map(String) : [];
+        const anchors = Array.isArray(args.anchors) ? args.anchors.map(String) : [];
         const links = [
           ...supersedes.map((toId) => ({ toId, kind: "supersedes" as const })),
           ...contradicts.map((toId) => ({ toId, kind: "contradicts" as const })),
         ];
-        const slip = dejavu.remember(text, { tags, kind, links });
+        const slip = dejavu.remember(text, { tags, kind, links, anchors });
 
         let rolledUpHandoff: string | null = null;
         if (keep) {
@@ -115,10 +125,14 @@ export function dispatch(
         const base = `${keep ? "kept" : "drafted"} slip ${slip.id}${
           keep ? "" : " (auto-expires in 24h unless kept)"
         }`;
+        const anchored = dejavu.anchorsFor(slip.id);
+        const anchorNote = anchored.length > 0
+          ? ` — anchored to ${anchored.map((a) => a.path).join(", ")}; future recalls report when that code changes`
+          : "";
         const trailer = rolledUpHandoff
           ? ` — auto-rolled into session handoff ${rolledUpHandoff}; visible to next agent on any recall`
           : "";
-        return { text: base + trailer + priorHandoffNudge(dejavu, state) };
+        return { text: base + anchorNote + trailer + priorHandoffNudge(dejavu, state) };
       }
       case "handoff": {
         const summary = String(args.summary ?? "");
@@ -253,7 +267,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "recall",
       description:
-        "Search agent memory for facts, decisions, preferences, and project-specific conventions the user (or a previous agent) wrote down. Use this BEFORE answering questions about: 'this project', 'this codebase', 'this repo', the user's preferences/setup/tools, decisions made in past sessions, work-in-progress, or anything where the answer could differ from generic best practice. Returns repository-scoped hits with evidence trust (high = repeatedly useful, medium = kept but unconfirmed, low = draft or disputed), provenance, and the most recent handoff from this repository. Trust is not truth: verify mutable facts against live state. Empty or whitespace-only query returns 'what's recent' instead of searching: active handoff + the N most recent kept slips. Cheap call — use it at session start when you don't know what to ask.",
+        "Search agent memory for facts, decisions, preferences, and project-specific conventions the user (or a previous agent) wrote down. Use this BEFORE answering questions about: 'this project', 'this codebase', 'this repo', the user's preferences/setup/tools, decisions made in past sessions, work-in-progress, or anything where the answer could differ from generic best practice. Returns repository-scoped hits with evidence trust (high = repeatedly useful, medium = kept but unconfirmed, low = draft or disputed), provenance, and the most recent handoff from this repository. Trust is not truth: verify mutable facts against live state. Hits anchored to code also report whether that code has changed since the memory was written — 'CODE CHANGED' or 'CODE DELETED' means re-verify before relying on it, and is a good reason to write a superseding memory. Empty or whitespace-only query returns 'what's recent' instead of searching: active handoff + the N most recent kept slips. Cheap call — use it at session start when you don't know what to ask.",
       inputSchema: {
         type: "object",
         properties: {
@@ -305,6 +319,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
             items: { type: "string" },
             description: "Slip ids this memory explicitly disputes.",
           },
+          anchors: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Files this memory is about, as 'path', 'path:line', 'path#symbol', or 'path:line#symbol', repository-relative. Anchor whenever the memory is a claim about specific code — a pitfall in a function, a decision embodied in a config file, a procedure that depends on a script. Dejavu records the file's content hash now and reports on every future recall whether that code has since changed or been deleted, so the next agent knows to re-verify. Anchoring a path that does not exist is an error, so pass paths you have actually read.",
+          },
           keep: {
             type: "boolean",
             description:
@@ -313,6 +333,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["text"],
+      },
+    },
+    {
+      name: "touching",
+      description:
+        "Ask what memory is anchored to specific files. This is the reverse of recall: instead of searching by words, you search by code. Use it BEFORE editing files you have not touched this session — pass the paths you are about to change, or the paths from your diff. It surfaces pitfalls, decisions, and procedures previously recorded about exactly that code, and leads with the ones whose code has since changed. Returns nothing when no memory is anchored there, which is itself useful: it means what you learn is worth writing down with remember(anchors: [...]).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Repository-relative or absolute file paths. Paths outside the repository are ignored.",
+          },
+          limit: { type: "number", description: "Max hits (default 20).", default: 20 },
+        },
+        required: ["paths"],
       },
     },
     {
