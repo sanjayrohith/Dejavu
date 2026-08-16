@@ -19,7 +19,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalPath, findGitDir, findRepoRoot } from "./context.ts";
-import type { Anchor, AnchorSpec } from "./types.ts";
+import type { Anchor, AnchorSpec, AnchorState, AnchorStatus } from "./types.ts";
 
 /**
  * Files larger than this are reported `unknown` rather than hashed.
@@ -246,6 +246,83 @@ export function captureAnchor(
     commit: options.commit !== undefined ? options.commit : headCommit(root),
     createdAt: options.createdAt ?? Date.now(),
   };
+}
+
+/**
+ * Severity order used to roll several anchors up into one verdict.
+ *
+ * `orphaned` outranks `drifted` because a deleted file is a stronger
+ * statement that the memory has been left behind. `unknown` outranks
+ * `verified` so an unverifiable anchor is never reported as confirmed.
+ */
+const STATUS_SEVERITY: Record<AnchorStatus, number> = {
+  verified: 0,
+  unknown: 1,
+  drifted: 2,
+  orphaned: 3,
+};
+
+/** Check one anchor against the working tree. Never throws. */
+export function checkAnchor(
+  anchor: Anchor,
+  root: string,
+  cache?: Map<string, { sha: string } | { reason: string }>,
+): AnchorState {
+  const absolute = resolveAnchorPath(root, anchor.path);
+  if (!absolute) {
+    return { anchor, status: "unknown", detail: `${anchor.path} is outside ${root}` };
+  }
+
+  let read = cache?.get(absolute);
+  if (!read) {
+    read = blobShaOf(absolute);
+    cache?.set(absolute, read);
+  }
+
+  if (!("sha" in read)) {
+    if (read.reason === "missing") {
+      return { anchor, status: "orphaned", detail: `${anchor.path} no longer exists` };
+    }
+    return { anchor, status: "unknown", detail: `${anchor.path} could not be checked (${read.reason})` };
+  }
+
+  if (read.sha === anchor.blobSha) {
+    return { anchor, status: "verified", detail: `${anchor.path} unchanged since this was written` };
+  }
+  return { anchor, status: "drifted", detail: `${anchor.path} changed since this was written` };
+}
+
+/**
+ * Check a batch of anchors, hashing each distinct file at most once.
+ *
+ * Recall packets are small and several slips often point at the same
+ * file, so the per-call cache does most of the work of keeping this off
+ * the critical path.
+ */
+export function checkAnchors(anchors: Anchor[], root: string): AnchorState[] {
+  const cache = new Map<string, { sha: string } | { reason: string }>();
+  return anchors.map((anchor) => checkAnchor(anchor, root, cache));
+}
+
+/**
+ * Collapse several anchor verdicts into the one an agent should act on.
+ *
+ * Returns null for an unanchored slip, which is not the same as a slip
+ * whose anchors all check out — the caller must be able to tell "no claim
+ * was made" from "the claim still holds".
+ */
+export function rollupDrift(states: AnchorState[]): AnchorStatus | null {
+  if (states.length === 0) return null;
+  let worst: AnchorStatus = "verified";
+  for (const state of states) {
+    if (STATUS_SEVERITY[state.status] > STATUS_SEVERITY[worst]) worst = state.status;
+  }
+  return worst;
+}
+
+/** True when the verdict means the memory should be re-checked before use. */
+export function driftIsSuspect(status: AnchorStatus | null | undefined): boolean {
+  return status === "drifted" || status === "orphaned";
 }
 
 /** Capture a batch, reading HEAD once for all of them. */
