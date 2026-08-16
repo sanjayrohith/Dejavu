@@ -1,4 +1,13 @@
-import type { Handoff, Link, RecallResult, Slip } from "./types.ts";
+import type {
+  AnchorState,
+  AnchorStatus,
+  Handoff,
+  Link,
+  RecallHit,
+  RecallResult,
+  Slip,
+  TouchingResult,
+} from "./types.ts";
 
 export interface RecallLinkProvider {
   linksFrom(id: string): Link[];
@@ -50,7 +59,7 @@ export function formatRecall(
       const safety = formatLinkSafety(h.slip.id, links);
       const next = h.nextAgent && h.nextAgent.read !== "skip" ? ` next-agent:${h.nextAgent.read}/${h.nextAgent.reasons.join("+") || "reason"}` : "";
       parts.push(
-        `- ${prefix} ${h.slip.id} · ${h.slip.kind}${tags}${next}\n  ${h.slip.text.replace(/\n/g, "\n  ")}\n  ${provenance}${safety}`,
+        `- ${prefix} ${h.slip.id} · ${h.slip.kind}${tags}${formatDriftMarker(h.drift)}${next}\n  ${h.slip.text.replace(/\n/g, "\n  ")}\n  ${provenance}${safety}${formatAnchors(h.anchors)}`,
       );
     }
   }
@@ -115,6 +124,87 @@ function formatAge(createdAt: number): string {
 function formatProvenance(slip: Slip): string {
   const created = new Date(slip.createdAt).toISOString();
   return `source: ${slip.authoredBy} · scope: ${slip.scope} · session: ${slip.sessionId} · created: ${created} · used/wrong: ${slip.usedCount}/${slip.wrongCount}`;
+}
+
+/**
+ * A compact drift marker for the hit's header line.
+ *
+ * `verified` is deliberately loud rather than silent: "this memory is
+ * about code that has not moved" is the strongest freshness signal
+ * dejavu can produce, and it is worth the handful of characters.
+ */
+function formatDriftMarker(drift: AnchorStatus | null | undefined): string {
+  switch (drift) {
+    case "verified":
+      return " · code unchanged";
+    case "drifted":
+      return " · CODE CHANGED — verify before relying on this";
+    case "orphaned":
+      return " · CODE DELETED — verify before relying on this";
+    case "unknown":
+      return " · code not checked";
+    default:
+      return "";
+  }
+}
+
+/** One line per anchor, naming the file and what happened to it. */
+function formatAnchors(states: AnchorState[] | undefined): string {
+  if (!states || states.length === 0) return "";
+  const lines = states.map((state) => {
+    const where = state.anchor.symbol
+      ? `${state.anchor.path}#${state.anchor.symbol}`
+      : state.anchor.line
+        ? `${state.anchor.path}:${state.anchor.line}`
+        : state.anchor.path;
+    return `${where} — ${state.status}`;
+  });
+  return `\n  anchors: ${lines.join("; ")}`;
+}
+
+/**
+ * Format a reverse lookup for an agent about to touch a set of files.
+ *
+ * Deliberately leads with the drifted and orphaned memory: the whole
+ * point of asking "what do you know about these files" before editing
+ * them is to find the notes that are about to be — or already are —
+ * wrong.
+ */
+export function formatTouching(result: TouchingResult, links?: RecallLinkProvider): string {
+  const parts: string[] = [];
+  if (result.traceId) parts.push(`# recall receipt ${result.traceId}`);
+
+  if (result.paths.length === 0) {
+    return [...parts, `# touching — no repository-relative paths given`].join("\n\n");
+  }
+
+  const scope = result.paths.join(", ");
+  if (result.hits.length === 0) {
+    return [
+      ...parts,
+      `# touching(${scope}) — no memory anchored to these files\nNothing has been written about this code yet. Consider anchoring what you learn: remember(text, { anchors: ["${result.paths[0]}"] }).`,
+    ].join("\n\n");
+  }
+
+  const suspect = result.hits.filter((hit) => hit.drift === "drifted" || hit.drift === "orphaned");
+  parts.push(
+    suspect.length > 0
+      ? `# touching(${scope}) — ${result.hits.length} anchored memory, ${suspect.length} about code that has since changed`
+      : `# touching(${scope}) — ${result.hits.length} anchored memory, all still matching the code`,
+  );
+
+  const ordered = [...suspect, ...result.hits.filter((hit) => !suspect.includes(hit))];
+  for (const hit of ordered) parts.push(formatAnchoredHit(hit, links));
+  return parts.join("\n\n");
+}
+
+function formatAnchoredHit(hit: RecallHit, links?: RecallLinkProvider): string {
+  const tags = hit.slip.tags.length > 0 ? ` [${hit.slip.tags.join(", ")}]` : "";
+  return (
+    `- **[${hit.trust}]** ${hit.slip.id} · ${hit.slip.kind}${tags}${formatDriftMarker(hit.drift)}\n` +
+    `  ${hit.slip.text.replace(/\n/g, "\n  ")}\n` +
+    `  ${formatProvenance(hit.slip)}${formatLinkSafety(hit.slip.id, links)}${formatAnchors(hit.anchors)}`
+  );
 }
 
 function formatLinkSafety(id: string, links?: RecallLinkProvider): string {
