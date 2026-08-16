@@ -16,10 +16,10 @@
  */
 
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
-import { canonicalPath, findRepoRoot } from "./context.ts";
-import type { AnchorSpec } from "./types.ts";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { canonicalPath, findGitDir, findRepoRoot } from "./context.ts";
+import type { Anchor, AnchorSpec } from "./types.ts";
 
 /**
  * Files larger than this are reported `unknown` rather than hashed.
@@ -162,4 +162,108 @@ export function blobShaOf(absolutePath: string): { sha: string } | { reason: str
   } catch {
     return { reason: "unreadable" };
   }
+}
+
+/**
+ * Read the commit HEAD points at, without shelling out to git.
+ *
+ * Follows a symbolic HEAD to its loose ref, then falls back to
+ * `packed-refs` for repositories whose refs have been packed. Returns
+ * null for an unborn branch, a repository with no HEAD, or anything else
+ * unreadable — the commit is provenance, not the drift signal, so a
+ * missing one is never fatal.
+ */
+export function headCommit(root: string): string | null {
+  const gitDir = findGitDir(root);
+  if (!gitDir) return null;
+  try {
+    const head = readFileSync(join(gitDir, "HEAD"), "utf8").trim();
+    const ref = head.match(/^ref:\s*(.+)$/)?.[1]?.trim();
+    if (!ref) return /^[0-9a-f]{40}$/i.test(head) ? head.toLowerCase() : null;
+
+    const loose = join(gitDir, ref);
+    if (existsSync(loose)) {
+      const sha = readFileSync(loose, "utf8").trim();
+      return /^[0-9a-f]{40}$/i.test(sha) ? sha.toLowerCase() : null;
+    }
+
+    const packed = join(gitDir, "packed-refs");
+    if (!existsSync(packed)) return null;
+    for (const line of readFileSync(packed, "utf8").split("\n")) {
+      if (!line || line.startsWith("#") || line.startsWith("^")) continue;
+      const [sha, name] = line.trim().split(/\s+/);
+      if (name === ref && sha && /^[0-9a-f]{40}$/i.test(sha)) return sha.toLowerCase();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export interface CaptureOptions {
+  slipId: string;
+  /** Directory anchor paths resolve against. Defaults to {@link anchorRoot}. */
+  root?: string;
+  createdAt?: number;
+  /** Reuse one HEAD read across a batch. */
+  commit?: string | null;
+}
+
+/**
+ * Capture one anchor against the current working tree.
+ *
+ * Throws rather than storing a broken pointer. A memory that claims to be
+ * about `src/auth.ts` when no such file exists is worse than an unanchored
+ * memory: it looks precise and is not. The caller decides whether that is
+ * a hard failure or a reason to drop the anchor.
+ */
+export function captureAnchor(
+  input: string | AnchorSpec,
+  options: CaptureOptions,
+): Anchor {
+  const spec = toAnchorSpec(input);
+  const root = options.root ?? anchorRoot();
+  const absolute = resolveAnchorPath(root, spec.path);
+  if (!absolute) {
+    throw new Error(
+      `dejavu anchor: "${spec.path}" resolves outside the repository root ${root}`,
+    );
+  }
+  const read = blobShaOf(absolute);
+  if (!("sha" in read)) {
+    throw new Error(
+      read.reason === "missing"
+        ? `dejavu anchor: "${spec.path}" does not exist in ${root}`
+        : `dejavu anchor: cannot read "${spec.path}" (${read.reason})`,
+    );
+  }
+  return {
+    slipId: options.slipId,
+    path: spec.path,
+    line: spec.line,
+    symbol: spec.symbol,
+    blobSha: read.sha,
+    commit: options.commit !== undefined ? options.commit : headCommit(root),
+    createdAt: options.createdAt ?? Date.now(),
+  };
+}
+
+/** Capture a batch, reading HEAD once for all of them. */
+export function captureAnchors(
+  inputs: Array<string | AnchorSpec>,
+  options: CaptureOptions,
+): Anchor[] {
+  if (inputs.length === 0) return [];
+  const root = options.root ?? anchorRoot();
+  const commit = options.commit !== undefined ? options.commit : headCommit(root);
+  const seen = new Set<string>();
+  const anchors: Anchor[] = [];
+  for (const input of inputs) {
+    const anchor = captureAnchor(input, { ...options, root, commit });
+    const key = `${anchor.path}\0${anchor.symbol ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    anchors.push(anchor);
+  }
+  return anchors;
 }
