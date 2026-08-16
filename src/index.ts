@@ -34,6 +34,7 @@ import {
   captureAnchors,
   checkAnchor,
   checkAnchors,
+  relativeAnchorPath,
   rollupDrift,
 } from "./anchors.ts";
 import type {
@@ -52,6 +53,7 @@ import type {
   HandoffStatus,
   LinkKind,
   NextAgentHit,
+  TouchingResult,
 } from "./types.ts";
 
 export type {
@@ -250,6 +252,62 @@ export class Dejavu {
       result.activeHandoff?.id ?? null,
     );
     return result;
+  }
+
+  /**
+   * Reverse lookup: what memory is anchored to these files?
+   *
+   * The complement of `recall`. Recall answers "what do I know about this
+   * phrase"; touching answers "what do I know about the code I am about
+   * to change" — a question an agent can ask before it has any idea what
+   * words to search for. Pass the paths of a diff, a file you are about
+   * to edit, or a directory's worth of files.
+   *
+   * Paths may be absolute or repository-relative; anything outside the
+   * repository is ignored. Results carry drift, since a memory about a
+   * file you are already editing is exactly the one most likely to be
+   * stale.
+   */
+  touching(paths: string[], opts: { limit?: number; checkAnchorDrift?: boolean } = {}): TouchingResult {
+    const limit = opts.limit ?? 20;
+    const normalized: string[] = [];
+    for (const raw of paths) {
+      const relative = relativeAnchorPath(this.anchorRoot, raw.trim());
+      if (relative && !normalized.includes(relative)) normalized.push(relative);
+    }
+
+    const slips = this.storage.slipsAnchoredTo(
+      normalized,
+      this.scope,
+      this.options.includeLegacy,
+      limit,
+    );
+    const seen = new Set<string>();
+    const hits: NextAgentHit[] = [];
+    for (const candidate of slips) {
+      const slip = this.storage.activeSuperseder(candidate.id, this.scope) ?? candidate;
+      if (seen.has(slip.id)) continue;
+      seen.add(slip.id);
+      hits.push({
+        slip,
+        score: 0,
+        trust: trustForSlip(slip),
+        nextAgent: { read: "skip", score: 0, reasons: [], penalties: [] },
+      });
+    }
+    this.labelDrift(hits, opts.checkAnchorDrift);
+
+    return {
+      paths: normalized,
+      // Reverse lookup is retrieval, so it leaves the same content-free
+      // receipt and shows up in the same quality report.
+      traceId: this.recordRecallTrace(
+        `touching:${normalized.join(" ")}`,
+        hits.map((hit) => hit.slip.id),
+        null,
+      ),
+      hits,
+    };
   }
 
   /**
