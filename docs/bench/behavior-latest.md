@@ -1,6 +1,6 @@
 # dejavu behavioral bench latest
 
-Generated: 2026-06-11T10:29:53.106Z
+Generated: 2026-08-16T10:06:20.395Z
 
 Summary: **3/3 experiments passed**
 

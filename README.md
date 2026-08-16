@@ -142,19 +142,23 @@ flowchart TB
         CTX["context<br/>repo scope derivation"]
         LC["lifecycle<br/>session id + trust"]
         FMT["format<br/>bounded packets"]
+        ANC["anchors<br/>code drift detection"]
         NA["next-agent<br/>ranker (off by default)"]
     end
 
-    STORE[("storage<br/>SQLite + FTS5<br/>slips · links · handoffs<br/>recall_traces · messages")]
+    STORE[("storage<br/>SQLite + FTS5<br/>slips · links · anchors · handoffs<br/>recall_traces · messages")]
+    TREE[/"working tree<br/>git blob ids"/]
 
     CLI --> LIB
     MCP --> LIB
     LIB --> CTX
     LIB --> LC
     LIB --> FMT
+    LIB --> ANC
     LIB --> NA
     LIB --> STORE
     CTX --> STORE
+    ANC --> TREE
 ```
 
 > **Repository isolation is the foundation.** The `context` module derives a stable scope from the nearest Git repository and its normalized `origin`, so two checkouts of the same repo share memory while unrelated projects stay isolated.
@@ -174,7 +178,8 @@ flowchart LR
     DED --> BUD{"within token<br/>budget?"}
     BUD -->|yes| PKT["add hit:<br/>kind · trust · provenance · links"]
     PKT --> BUD
-    BUD -->|no| OUT["context packet<br/>+ active handoff<br/>+ trace receipt"]
+    BUD -->|no| DRIFT["check anchored hits<br/>against the working tree"]
+    DRIFT --> OUT["context packet<br/>+ drift verdicts<br/>+ active handoff<br/>+ trace receipt"]
 ```
 
 <br/>
@@ -328,6 +333,50 @@ d.resolveHandoff(h.id, "completed");
 
 Only active, repository-scoped handoffs appear in normal recall. Resolved or abandoned work no longer directs the next agent. An unresolved handoff older than three days is labeled **stale** and advisory, so an agent verifies it before acting.
 
+### Memory that knows when its code moved
+
+A memory's age tells you almost nothing about whether it is still true. What matters is whether the code it describes changed underneath it — and git already knows.
+
+Anchor a memory to the code it is about:
+
+```ts
+d.remember("refreshToken double-refreshes inside the middleware", {
+  kind: "pitfall",
+  anchors: ["src/auth.ts:42#refreshToken"],
+});
+```
+
+Dejavu records the file's **git blob id** at write time. Every later recall recomputes it and reports the verdict:
+
+| Status | Meaning |
+|---|---|
+| `verified` | The anchored file is byte-identical to when the memory was written |
+| `drifted` | The file still exists, but its contents changed |
+| `orphaned` | The anchored path is gone |
+| `unknown` | Could not be checked — outside a checkout, unreadable, or too large |
+
+```text
+- **[medium — kept, not yet confirmed]** 01M05… · pitfall · CODE CHANGED — verify before relying on this
+  refreshToken double-refreshes inside the middleware
+  anchors: src/auth.ts#refreshToken — drifted
+```
+
+> Drift is a **label**, not a ranking input. It never touches BM25 relevance, evidence trust, or hit order — that would be a retrieval change, and retrieval changes here have to be earned by an eval.
+
+Anchoring also gives recall an inverse. `touching` answers *"what is known about the code I am about to change"* — a question an agent can ask before it knows what words to search for:
+
+```ts
+d.touching(["src/auth.ts", "src/billing.ts"]);
+```
+
+```bash
+dejavu touching src/auth.ts
+dejavu touching --diff          # whatever you have changed but not committed
+dejavu anchors --drifted        # anchored memory whose code has since moved
+```
+
+The check is local, deterministic, and never calls a model. It costs roughly **0.1 ms** at p95 on an eight-hit packet — 0.07–0.14 ms across runs (`bun run bench:anchors`) — and a database with no anchored memory pays one indexed query that returns nothing.
+
 ### A measurable feedback loop
 
 By default, each recall returns a content-free receipt id. After acting, an agent can assess the retrieval:
@@ -384,9 +433,10 @@ d.handoff({
 **Core lifecycle**
 
 ```ts
-d.remember(text, options?)
+d.remember(text, options?)          // options.anchors pins it to code
 d.keep(ids)
 d.recall(query, { limit?, maxTokens?, kinds? })
+d.touching(paths, { limit? })
 d.handoff({ summary, next? })
 d.resolveHandoff(id, "completed" | "abandoned")
 ```
@@ -400,6 +450,8 @@ d.forget(slipId)
 d.link(fromId, toId, "supersedes" | "contradicts" | "related")
 d.assessRecall(traceId, assessment, note?)
 d.recallReport()
+d.anchorsFor(slipId)
+d.anchorStates(slipId)
 ```
 
 **Deliberate bulk cleanup**
@@ -425,7 +477,8 @@ The local MCP server exposes two small groups.
 | Tool | Purpose |
 |---|---|
 | `recall` | Scoped, budgeted retrieval + active handoff |
-| `remember` | Draft/keep a typed memory; supersede or contradict |
+| `touching` | Reverse lookup: memory anchored to given files |
+| `remember` | Draft/keep a typed memory; anchor, supersede, or contradict |
 | `handoff` | Leave one active continuation packet |
 | `resolve_handoff` | Complete or abandon a handoff |
 | `signal` | Mark one slip used, wrong, or forgotten |
@@ -493,6 +546,7 @@ The default database is `~/.dejavu/dejavu.db`.
 | `slips` | Immutable memory text, kind, scope, lifecycle, evidence counts |
 | `slips_fts` | Porter-stemmed FTS5 index over text and tags |
 | `links` | Supersession, contradiction, and related-memory edges |
+| `anchors` | Immutable pointers from a slip to code, with the blob id captured at write time |
 | `handoffs` | Active/resolved continuation packets |
 | `recall_traces` | Retrieval receipts and assessments, without duplicated memory text |
 | `messages` | Local asynchronous agent mailbox |
@@ -558,6 +612,7 @@ Dejavu/
 │   ├── index.ts            #   Dejavu library API
 │   ├── storage.ts          #   SQLite + FTS5 store
 │   ├── context.ts          #   repository scope derivation
+│   ├── anchors.ts          #   code anchors + drift detection
 │   ├── lifecycle.ts        #   session id + trust helpers
 │   ├── format.ts           #   bounded recall/recents packets
 │   ├── next-agent.ts       #   experimental ranker (off by default)
@@ -593,6 +648,7 @@ bun run check
 bun test ./test
 bun run typecheck
 bun run bench/recall.ts
+bun run bench:anchors
 bun run bench:behavior
 ```
 
@@ -619,7 +675,8 @@ Dejavu is deliberately:
 - **repository-scoped**, not one global memory soup;
 - **append-only and auditable**, not silently self-rewriting;
 - **budgeted**, not a transcript injector;
-- **honest about stale state**, not eventually-consistent theater.
+- **honest about stale state**, not eventually-consistent theater;
+- **anchored to code where it can be**, so staleness is measured against the repository rather than the clock.
 
 > Dejavu is **not** a secrets manager, generic RAG platform, team ACL product, or replacement for source control.
 

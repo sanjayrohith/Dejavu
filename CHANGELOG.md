@@ -2,6 +2,28 @@
 
 All notable changes to Dejavu are documented here.
 
+## Unreleased
+
+### Added
+
+- Code anchors: `remember(text, { anchors: ["src/auth.ts:42#fn"] })` pins a memory to the code it describes, recording the file's git blob id at write time.
+- Anchor drift in recall: anchored hits report `verified`, `drifted`, `orphaned`, or `unknown` against the current working tree, so staleness is measured against the code rather than the clock.
+- `Dejavu.touching(paths)` and the `touching` MCP tool: reverse lookup that answers "what is known about the code I am about to change" without needing a query.
+- `dejavu touching <path...>`, `dejavu touching --diff`, and `dejavu anchors [--drifted]`.
+- `dejavu remember --anchor=<path[:line][#symbol]>`, repeatable.
+- Anchor status, location, and capture commit in `dejavu show`.
+- `bench/anchors.ts`, wired into `bun run check`, bounding drift-check overhead.
+
+### Changed
+
+- The `recall` and `remember` MCP tool descriptions explain anchoring and the drift markers.
+
+### Safety
+
+- Anchors that resolve outside the repository root are rejected at write time, so memory cannot point a future reader at arbitrary files.
+- A failed anchor capture aborts the whole write rather than storing a memory that looks precise and is not.
+- Drift is a label only. It does not affect BM25 relevance, evidence trust, or hit order — that would be a retrieval change, and retrieval changes require an eval.
+
 ## 0.1.0 — release candidate
 
 ### Added

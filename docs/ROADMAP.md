@@ -120,11 +120,14 @@ No item in this batch ships merely because it sounds intelligent.
 - [ ] Add phrase, prefix, and acronym query expansion where fixtures prove value.
 - [ ] Add query decomposition only if multi-concept cases improve without false positives.
 - [ ] Evaluate recency as a tie-breaker, never as truth.
+- [ ] Evaluate anchor drift as a ranking input, only if an eval shows drifted memory is genuinely less useful. It is a label until then.
 - [ ] Evaluate kind-specific ranking.
 - [ ] Add current branch/task context only after repository scope remains stable.
 
 ### Context packet quality
 
+- [x] Anchor memory to code and report drift against the working tree.
+- [x] Reverse lookup: memory anchored to a given set of files.
 - [ ] Account for handoff tokens inside the same output budget.
 - [ ] Add configurable `mustKnow`, `activeWork`, and `hazard` packet sections.
 - [ ] Measure actual tokenizer variance against the four-character estimate.
@@ -137,6 +140,7 @@ No item in this batch ships merely because it sounds intelligent.
 - [ ] Suggest supersession only when topic overlap is strong and scoped.
 - [ ] Detect near-duplicate memories and return the existing id.
 - [ ] Consolidate repeated episodic findings into a proposed procedure.
+- [ ] Propose supersession when a memory's anchored code has drifted, without writing it automatically.
 - [ ] Require explicit acceptance before synthesized memory becomes kept.
 
 ### Agent integration
@@ -271,6 +275,7 @@ These are deliberately below memory quality and security.
 | False recall on non-memory tasks | not enough samples | <= 5% |
 | Default recall packet | bounded | <= 800 tokens p95 |
 | Warm local recall | effectively instant | < 20 ms p95 |
+| Anchor drift overhead | ~0.1 ms p95 (8 hits) | < 5 ms p95 |
 | Shared peer visibility | ~485 ms experiment | < 1 s p95 |
 | Shared deployment | blocked | all security gates complete |
 

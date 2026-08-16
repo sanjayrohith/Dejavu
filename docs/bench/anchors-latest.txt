@@ -1,0 +1,13 @@
+
+=== dejavu anchor drift overhead ===
+
+8 kept slips per arm · 200-line files · 200 timed recalls
+
+arm                             p50 ms    p95 ms
+--------------------------------------------------------
+unanchored (baseline)           0.606     0.680
+anchored, 8 distinct files      0.739     0.817
+anchored, 1 shared file         0.664     0.750
+--------------------------------------------------------
+overhead at p95: +0.136 ms (anchored, 8 distinct files)
+
