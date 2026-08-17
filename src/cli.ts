@@ -70,7 +70,8 @@ Usage:
   dejavu forget-session <id> --yes  Expire a session's scoped slips
   dejavu install claude-code [--global] [--print] [--uninstall]
                                Wire session hooks into Claude Code settings
-  dejavu session start [--harness=claude-code]   Orient a new session (reads hook JSON on stdin)
+  dejavu session start [--harness=claude-code] [--no-worktree]
+                               Orient a new session (reads hook JSON on stdin)
   dejavu session checkpoint    Preserve this session's work before compaction
   dejavu session end           Preserve, then release the session claim
   dejavu ls [--session]        List kept slips (or current session's slips)
@@ -465,13 +466,18 @@ function cmdInstall(args: string[]): void {
 async function cmdSession(args: string[]): Promise<void> {
   const phase = args[0] as import("./harness.ts").HarnessPhase | undefined;
   if (!phase || !["start", "checkpoint", "end"].includes(phase)) {
-    console.error("usage: dejavu session <start|checkpoint|end> [--harness=name] [--tokens=N]");
+    console.error(
+      "usage: dejavu session <start|checkpoint|end> [--harness=name] [--tokens=N] [--no-worktree]",
+    );
     process.exit(1);
   }
   const rest = args.slice(1);
   const harness = rest.find((a) => a.startsWith("--harness="))?.split("=")[1] || "unknown";
   const maxTokens = Number(rest.find((a) => a.startsWith("--tokens="))?.split("=")[1] ?? 700);
   const quiet = rest.includes("--quiet");
+  // Escape hatch for anyone who does not want a git subprocess on the
+  // session-start path, and the control arm of bench/session.ts.
+  const worktree = !rest.includes("--no-worktree");
 
   let d: Dejavu | null = null;
   try {
@@ -484,7 +490,7 @@ async function cmdSession(args: string[]): Promise<void> {
     d = new Dejavu({ path: dbPath(), skipGc: phase === "start" ? false : true });
 
     if (phase === "start") {
-      const result = orient(d, event, { maxTokens });
+      const result = orient(d, event, { maxTokens, worktree });
       if (result.context) process.stdout.write(`${result.context}\n`);
       return;
     }

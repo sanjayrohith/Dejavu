@@ -1,13 +1,15 @@
 
 === dejavu session hook latency ===
 
-cold process per invocation · 40 kept memories · 12 runs per phase
+cold process per invocation · 40 kept memories · 12 anchored · 12 files, 6 dirty · 12 runs per phase
 
-phase         p50 ms    worst ms
-----------------------------------------
-start         82        89
-checkpoint    75        84
-end           71        78
-----------------------------------------
-worst: 89 ms (start) · session-end budget 1500 ms shared across all hooks
+phase             p50 ms    worst ms
+--------------------------------------------
+start (no tree)   33        38
+start             36        38
+checkpoint        30        35
+end               30        33
+--------------------------------------------
+working-tree read: +3 ms p50, +0 ms worst
+worst: 38 ms (start) · session-end budget 1500 ms shared across all hooks
 
