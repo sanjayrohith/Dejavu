@@ -44,6 +44,7 @@ import {
 } from "./harness.ts";
 import { currentSessionId } from "./lifecycle.ts";
 import { readSessionPointer } from "./session.ts";
+import { changedPaths } from "./worktree.ts";
 
 function usage(): never {
   console.log(`dejavu — local-first agent memory
@@ -235,24 +236,26 @@ function cmdRemember(args: string[]): void {
   }
 }
 
-/** Repository-relative paths of the working tree's uncommitted changes. */
-function changedPaths(root: string): string[] {
-  const git = Bun.spawnSync(["git", "diff", "--name-only", "HEAD"], { cwd: root });
-  if (!git.success) {
+/**
+ * Repository-relative paths of the working tree's uncommitted changes.
+ *
+ * The shared helper reports "could not read the diff" as null so a
+ * session hook can shrug it off; a human who typed `--diff` explicitly
+ * deserves to be told instead.
+ */
+function diffPaths(root: string): string[] {
+  const paths = changedPaths(root);
+  if (paths === null) {
     throw new Error("dejavu touching --diff: could not read the diff (is this a git checkout with commits?)");
   }
-  return new TextDecoder()
-    .decode(git.stdout)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  return paths;
 }
 
 function cmdTouching(args: string[]): void {
   const d = new Dejavu({ path: dbPath(), skipGc: true });
   try {
     const paths = args.includes("--diff")
-      ? changedPaths(d.anchorRoot)
+      ? diffPaths(d.anchorRoot)
       : args.filter((arg) => !arg.startsWith("--"));
     if (paths.length === 0) {
       console.log(
