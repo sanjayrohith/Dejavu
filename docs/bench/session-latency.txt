@@ -5,11 +5,11 @@ cold process per invocation · 40 kept memories · 12 anchored · 12 files, 6 di
 
 phase             p50 ms    worst ms
 --------------------------------------------
-start (no tree)   33        38
-start             36        38
-checkpoint        30        35
-end               30        33
+start (no tree)   35        38
+start             38        40
+checkpoint        29        36
+end               30        35
 --------------------------------------------
-working-tree read: +3 ms p50, +0 ms worst
-worst: 38 ms (start) · session-end budget 1500 ms shared across all hooks
+working-tree read: +3 ms p50, +2 ms worst
+worst: 40 ms (start) · session-end budget 1500 ms shared across all hooks
 

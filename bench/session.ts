@@ -206,9 +206,12 @@ const control = results.find((r) => r.phase === "start (no tree)");
 const withTree = results.find((r) => r.phase === "start");
 console.log("-".repeat(44));
 if (control && withTree) {
+  // Signed, because run-to-run noise on a small delta genuinely produces
+  // negatives and "+-1 ms" reads like a bug in the benchmark.
+  const signed = (value: number) => `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(0)}`;
   console.log(
-    `working-tree read: +${(withTree.p50 - control.p50).toFixed(0)} ms p50, ` +
-      `+${(withTree.worst - control.worst).toFixed(0)} ms worst`,
+    `working-tree read: ${signed(withTree.p50 - control.p50)} ms p50, ` +
+      `${signed(withTree.worst - control.worst)} ms worst`,
   );
 }
 console.log(
