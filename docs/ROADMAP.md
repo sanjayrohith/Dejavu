@@ -122,14 +122,14 @@ No item in this batch ships merely because it sounds intelligent.
 - [ ] Evaluate recency as a tie-breaker, never as truth.
 - [ ] Evaluate anchor drift as a ranking input, only if an eval shows drifted memory is genuinely less useful. It is a label until then.
 - [ ] Evaluate kind-specific ranking.
-- [ ] Add current branch/task context only after repository scope remains stable.
+- [x] Add current branch/task context only after repository scope remains stable.
 
 ### Context packet quality
 
 - [x] Anchor memory to code and report drift against the working tree.
 - [x] Reverse lookup: memory anchored to a given set of files.
-- [ ] Account for handoff tokens inside the same output budget.
-- [ ] Add configurable `mustKnow`, `activeWork`, and `hazard` packet sections.
+- [x] Account for handoff tokens inside the same output budget.
+- [x] Add `mustKnow`, `activeWork`, and `hazard` packet sections, composed from the working tree.
 - [ ] Measure actual tokenizer variance against the four-character estimate.
 - [ ] Add deterministic compact summaries only for memories with preserved source links.
 - [ ] Prove default session-start packet stays below 800 tokens.
@@ -148,6 +148,8 @@ No item in this batch ships merely because it sounds intelligent.
 - [x] Harness-agnostic session lifecycle: orientation, checkpoint, and end.
 - [x] Claude Code adapter: SessionStart, PreCompact, SessionEnd, installed by command.
 - [x] Session identity shared across hook, MCP, and CLI processes.
+- [x] Session-start orientation composed from the working tree rather than recency.
+- [ ] Show that working-tree orientation beats the recency packet in real sessions.
 - [ ] Pi extension over the same lifecycle commands.
 - [ ] OpenCode adapter over the same lifecycle commands.
 - [ ] Re-run the loop 4 chain battery with hooks installed to test the writer-side gap.
@@ -278,7 +280,8 @@ These are deliberately below memory quality and security.
 | Default recall packet | bounded | <= 800 tokens p95 |
 | Warm local recall | effectively instant | < 20 ms p95 |
 | Anchor drift overhead | ~0.1 ms p95 (8 hits) | < 5 ms p95 |
-| Session hook latency | ~85 ms cold worst case | < 600 ms (40% of exit budget) |
+| Session hook latency | ~40 ms cold worst case | < 600 ms (40% of exit budget) |
+| Working-tree read at session start | +3 ms p50 vs its own control | < 100 ms p50 |
 | Shared peer visibility | ~485 ms experiment | < 1 s p95 |
 | Shared deployment | blocked | all security gates complete |
 

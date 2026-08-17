@@ -145,11 +145,12 @@ flowchart TB
         ANC["anchors<br/>code drift detection"]
         HAR["harness<br/>session lifecycle"]
         SES["session<br/>cross-process identity"]
+        WT["worktree<br/>branch + changed files"]
         NA["next-agent<br/>ranker (off by default)"]
     end
 
     STORE[("storage<br/>SQLite + FTS5<br/>slips · links · anchors · handoffs<br/>recall_traces · messages")]
-    TREE[/"working tree<br/>git blob ids"/]
+    TREE[/"working tree<br/>git blob ids · branch · diff"/]
 
     HOOKS[/"harness hooks<br/>start · compact · end"/] --> CLI
     CLI --> LIB
@@ -161,10 +162,12 @@ flowchart TB
     LIB --> LC
     LIB --> FMT
     LIB --> ANC
+    LIB --> WT
     LIB --> NA
     LIB --> STORE
     CTX --> STORE
     ANC --> TREE
+    WT --> TREE
 ```
 
 > **Repository isolation is the foundation.** The `context` module derives a stable scope from the nearest Git repository and its normalized `origin`, so two checkouts of the same repo share memory while unrelated projects stay isolated.
@@ -435,9 +438,62 @@ A session hook is not the agent: it can't forget, get distracted, or decide the 
 
 **Shared session identity.** Hooks, the MCP server, and your own shell are separate processes, and each used to invent its own session — so a hook literally could not see the agent's drafts. A harness now claims one session id per repository scope, recorded beside the database. `DEJAVU_SESSION` still wins, the claim expires after 24 h, and a missing or corrupt one falls back to the old per-process id. Side effect: `dejavu remember` typed in your terminal joins the same session as the agent.
 
-Two boundaries held deliberately: hooks **never read the transcript** (`transcript_path` is handed to us and ignored — transcript archiving as memory is a non-goal), and hooks **never call a model**. Everything is deterministic bookkeeping over what the agent already wrote; if it wrote nothing, nothing is invented. Cold-process cost is ~85 ms (`bun run bench:session`), against Claude Code's 1.5 s session-end budget.
+Two boundaries held deliberately: hooks **never read the transcript** (`transcript_path` is handed to us and ignored — transcript archiving as memory is a non-goal), and hooks **never call a model**. Everything is deterministic bookkeeping over what the agent already wrote; if it wrote nothing, nothing is invented. Cold-process cost is ~40 ms (`bun run bench:session`), against Claude Code's 1.5 s session-end budget.
 
 > This makes memory **structural rather than discretionary**. Whether it closes Loop 4's writer-side gap in real sessions is a hypothesis, not a result — it needs a Loop 5. See [`docs/bench/claims.md`](docs/bench/claims.md).
+
+### Orientation that knows where the session is
+
+Getting the packet to arrive is half the problem. The other half is what is in it.
+
+That packet used to be the six most recently kept memories — and recency got *worse* as the hooks got better, because a checkpoint promotes a whole session's drafts at once. They all land on the same `kept_at`, so one busy session fills the next session's packet with its own scratch notes and evicts the preference that has been proving itself for a month.
+
+The checkout already knows what the session is about. So orientation asks it:
+
+```text
+# orientation — branch feature/auth-refactor · 2 changed file(s)
+- src/auth.ts
+- src/billing.ts
+
+# active handoff · 3h old
+Auth refactor is implemented but not deployed.
+
+next:
+- run integration tests
+
+# hazards — 2 anchored memory about the 2 file(s) you are changing, 1 about code that has since changed
+- **[medium — kept, not yet confirmed]** 01M05… · pitfall · CODE CHANGED — verify before relying on this
+  refreshToken double-refreshes inside the middleware
+  anchors: src/auth.ts — drifted
+
+# active work — 1 open item(s) in this repository
+…
+
+# must know — 2 standing decision(s) and preference(s); these override generic best practice
+- **[high — repeatedly useful]** 01M04… · decision
+  always deploy with wrangler, never the dashboard
+```
+
+Four sections, in the order a fresh agent needs them: what is known about the code already being edited (drifted first), what is open, what generic best practice would get wrong, and — last — everything else, so memory written without a `kind` is never silently dropped.
+
+| Section | Chosen by |
+|---|---|
+| `hazards` | anchored to a path in `git diff --name-only HEAD`, most suspect first |
+| `active work` | kind `wip`, by evidence |
+| `must know` | kinds `decision`, `preference`, `pitfall`, `procedure`, by evidence |
+| `also known` | everything else still kept, by evidence |
+
+Sections draw down **one shared budget**, which the active handoff is now charged against too — a long handoff can no longer smuggle itself past the limit. Ordering inside every section is trust first and recency only as a tie-break, so the packet can never disagree with the trust label printed beside each hit.
+
+See what your agent will actually be handed:
+
+```bash
+dejavu orient
+```
+
+Still deterministic, still local, still no model call. The branch comes out of `.git/HEAD` without a subprocess; only the diff shells out, under a 250 ms timeout and a 200-path cap. Outside a checkout — or with no git on `PATH`, or a git that hangs — the hazard section is simply absent and the rest of the packet still beats a recency list. The read costs **+3 ms p50** measured against its own `--no-worktree` control arm (`bun run bench:session`); pass `--no-worktree` to `dejavu session start` if you would rather not spawn git at all.
+
+> Composition is proven by fixtures and the cost is measured. That this makes agents *continue better* than the recency packet did is a **hypothesis** — it needs the same real-session comparison Loop 5 owes the hooks themselves. See [`docs/bench/claims.md`](docs/bench/claims.md).
 
 ## Agent API
 
@@ -478,6 +534,7 @@ d.handoff({
 d.remember(text, options?)          // options.anchors pins it to code
 d.keep(ids)
 d.recall(query, { limit?, maxTokens?, kinds? })
+d.orientation({ maxTokens?, limit? })  // the packet a session should open with
 d.touching(paths, { limit? })
 d.handoff({ summary, next? })
 d.resolveHandoff(id, "completed" | "abandoned")
@@ -518,7 +575,7 @@ The local MCP server exposes two small groups.
 
 | Tool | Purpose |
 |---|---|
-| `recall` | Scoped, budgeted retrieval + active handoff |
+| `recall` | Scoped, budgeted retrieval + active handoff; empty query orients |
 | `touching` | Reverse lookup: memory anchored to given files |
 | `remember` | Draft/keep a typed memory; anchor, supersede, or contradict |
 | `handoff` | Leave one active continuation packet |
@@ -556,7 +613,9 @@ dejavu stats
 
 dejavu install claude-code            # wire session hooks into Claude Code
 dejavu session start|checkpoint|end   # harness lifecycle (hooks call these)
+dejavu session start --no-worktree    # orient without spawning git
 
+dejavu orient                         # the packet a new session would open with
 dejavu recall                         # scoped recents + active handoff
 dejavu recall "deployment decision" --tokens=700 --kind=decision,pitfall
 dejavu remember "Decision: deploy with Wrangler" --kind=decision --keep
@@ -662,6 +721,7 @@ Dejavu/
 │   ├── context.ts          #   repository scope derivation
 │   ├── anchors.ts          #   code anchors + drift detection
 │   ├── harness.ts          #   session lifecycle for agent harnesses
+│   ├── worktree.ts         #   branch + diff, read cheaply and forgivingly
 │   ├── session.ts          #   cross-process session identity
 │   ├── lifecycle.ts        #   session id + trust helpers
 │   ├── format.ts           #   bounded recall/recents packets

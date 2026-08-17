@@ -6,6 +6,14 @@ All notable changes to Dejavu are documented here.
 
 ### Added
 
+- Working-tree orientation: the session-start packet is composed from the checkout — memory anchored to the files already changed (most suspect first), then open work, then standing decisions and preferences — instead of the most recently kept slips.
+- `Dejavu.orientation()` and the `OrientationPacket` type.
+- `dejavu orient [--tokens=N] [--limit=N]`, showing the packet a new session would open with.
+- `src/worktree.ts`: current branch read from `.git/HEAD` without a subprocess, and changed paths read from git under a timeout and a path cap.
+- `Storage.listKeptByTrust()`: kept memory ordered by evidence rather than by `kept_at`.
+- `dejavu session start --no-worktree`, for anyone who does not want a git subprocess on the session-start path.
+- `bench/session.ts` now plants a real checkout with a dirty tree and anchored memory, carries a `--no-worktree` control arm, and fails if the fixture stops exercising the path it measures.
+
 - Harness session lifecycle: `dejavu session start|checkpoint|end`, driven by hook payloads on stdin.
 - `dejavu install claude-code` wires SessionStart, PreCompact, and SessionEnd into Claude Code settings, with `--global`, `--print`, and `--uninstall`.
 - Session identity shared across processes: a harness claims one session id per repository scope so hooks, the MCP server, and the CLI agree on which session they are writing to.
@@ -23,10 +31,17 @@ All notable changes to Dejavu are documented here.
 
 ### Changed
 
+- An empty `recall` query now orients instead of returning a flat recency list, over MCP and through the session hook alike. Passing `kinds` with an empty query still returns the flat view.
+- The `recall` tool description says what an empty query returns.
+- The active handoff is charged against the same output budget as the memories beside it, rather than arriving free.
 - The `recall` and `remember` MCP tool descriptions explain anchoring and the drift markers.
 
 ### Safety
 
+- Reading the working tree never throws: no checkout, no commits, no git on `PATH`, and a git that hangs all degrade to "no worktree signal" rather than failing a session.
+- Orientation still never calls a model and never reads a transcript. The diff is bounded by a 250 ms timeout and a 200-path cap.
+- Untyped memory is carried in a trailing section rather than dropped, so a packet cannot silently lose everything an agent wrote without setting `kind`.
+- A working-tree header is printed only for a tree that was actually read; a directory that is not a checkout is never reported as clean.
 - Session hooks never read `transcript_path`; transcript archiving as memory stays a non-goal.
 - Session hooks never call a model, so nothing is invented and nothing slow lands on the session exit path.
 - Session hook failures degrade to a stderr note and a zero exit, so a memory problem cannot break a session.
