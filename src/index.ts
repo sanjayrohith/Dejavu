@@ -34,12 +34,17 @@ import {
   captureAnchors,
   checkAnchor,
   checkAnchors,
+  driftIsSuspect,
   relativeAnchorPath,
   rollupDrift,
 } from "./anchors.ts";
+import { readWorktree } from "./worktree.ts";
 import type {
   Anchor,
   AnchorState,
+  MemoryKind,
+  OrientationOptions,
+  OrientationPacket,
   Slip,
   Handoff,
   HandoffInput,
@@ -93,8 +98,18 @@ export type {
   AnchorSpec,
   AnchorState,
   AnchorStatus,
+  OrientationOptions,
+  OrientationPacket,
   TouchingResult,
 } from "./types.ts";
+export {
+  changedPaths,
+  currentBranch,
+  readWorktree,
+  DIFF_TIMEOUT_MS,
+  MAX_DIFF_PATHS,
+} from "./worktree.ts";
+export type { WorktreeState } from "./worktree.ts";
 export { SharedDejavu } from "./shared-client/index.ts";
 export type { SharedDejavuOptions, SharedRememberOptions, SharedHandoffOptions } from "./shared-client/index.ts";
 export type {
@@ -286,18 +301,37 @@ export class Dejavu {
    */
   touching(paths: string[], opts: { limit?: number; checkAnchorDrift?: boolean } = {}): TouchingResult {
     const limit = opts.limit ?? 20;
+    const normalized = this.normalizeAnchorPaths(paths);
+    const hits = this.anchoredHits(normalized, limit);
+    this.labelDrift(hits, opts.checkAnchorDrift);
+
+    return {
+      paths: normalized,
+      // Reverse lookup is retrieval, so it leaves the same content-free
+      // receipt and shows up in the same quality report.
+      traceId: this.recordRecallTrace(
+        `touching:${normalized.join(" ")}`,
+        hits.map((hit) => hit.slip.id),
+        null,
+      ),
+      hits,
+    };
+  }
+
+  /** Repository-relative, de-duplicated; anything outside the root is dropped. */
+  private normalizeAnchorPaths(paths: string[]): string[] {
     const normalized: string[] = [];
     for (const raw of paths) {
       const relative = relativeAnchorPath(this.anchorRoot, raw.trim());
       if (relative && !normalized.includes(relative)) normalized.push(relative);
     }
+    return normalized;
+  }
 
-    const slips = this.storage.slipsAnchoredTo(
-      normalized,
-      this.scope,
-      this.options.includeLegacy,
-      limit,
-    );
+  /** Non-expired slips anchored to `paths`, resolved to current truth. Undrifted. */
+  private anchoredHits(paths: string[], limit: number): NextAgentHit[] {
+    if (paths.length === 0 || limit <= 0) return [];
+    const slips = this.storage.slipsAnchoredTo(paths, this.scope, this.options.includeLegacy, limit);
     const seen = new Set<string>();
     const hits: NextAgentHit[] = [];
     for (const candidate of slips) {
@@ -311,18 +345,102 @@ export class Dejavu {
         nextAgent: { read: "skip", score: 0, reasons: [], penalties: [] },
       });
     }
-    this.labelDrift(hits, opts.checkAnchorDrift);
+    return hits;
+  }
+
+  /**
+   * Compose the packet a session should open with.
+   *
+   * `recall("")` answers "what happened recently", which is a reasonable
+   * thing to ask and a poor way to start a session. It orders by
+   * `kept_at`, so after one hooked session — where a checkpoint promotes
+   * every draft at once — the whole packet is that session's leftovers,
+   * and orientation gets worse precisely as the database gets richer.
+   *
+   * This asks a better question. The checkout already says what the
+   * session is about: the branch it is on and the files changed in it.
+   * Memory anchored to those files is the part most likely to matter and
+   * most likely to be stale, so it leads. Then open work, then the
+   * durable decisions and preferences a fresh agent would otherwise
+   * replace with generic best practice.
+   *
+   * Everything here is deterministic and local. No model call, and no
+   * transcript is read. Outside a checkout — or when git cannot be run —
+   * the hazard section is simply empty and the rest of the packet still
+   * beats a recency list.
+   */
+  orientation(opts: OrientationOptions = {}): OrientationPacket {
+    const limit = opts.limit ?? 8;
+    const maxTokens = opts.maxTokens ?? 700;
+
+    // The caller may already know the tree (a hook that read it, a test
+    // pinning a fixture). Otherwise read it, cheaply and forgivingly.
+    const tree = opts.paths !== undefined
+      ? { branch: opts.branch ?? null, changed: opts.paths, truncated: false, unavailable: false }
+      : readWorktree(this.anchorRoot);
+    const paths = this.normalizeAnchorPaths(tree.changed);
+
+    const activeHandoff =
+      this.storage.getActiveHandoffBySession(this.sessionId, this.scope) ??
+      this.storage.latestHandoffs(1, this.scope, this.options.includeLegacy)[0] ??
+      null;
+
+    const budget = new PacketBudget(maxTokens, limit);
+    // The handoff is surfaced unconditionally, so it is spent from the
+    // same allowance rather than smuggled in beside it.
+    if (activeHandoff) {
+      budget.charge(activeHandoff.summary + activeHandoff.next.join(" "));
+    }
+
+    // Hazards are drift-labelled before budgeting so the suspect ones win
+    // the space. That hashes a few files that may then be dropped; the
+    // set is bounded by the diff, and getting this order right is the
+    // whole point of the section.
+    const anchored = this.anchoredHits(paths, limit);
+    this.labelDrift(anchored, opts.checkAnchorDrift);
+    const hazards = budget.take([
+      ...anchored.filter((hit) => driftIsSuspect(hit.drift)),
+      ...anchored.filter((hit) => !driftIsSuspect(hit.drift)),
+    ]);
+
+    const claimed = new Set(hazards.map((hit) => hit.slip.id));
+    const section = (kinds: MemoryKind[]): NextAgentHit[] => {
+      const taken = budget.take(
+        this.storage
+          .listKeptByTrust(kinds, limit, this.scope, this.options.includeLegacy, [...claimed])
+          .map((slip) => ({
+            slip,
+            score: 0,
+            trust: trustForSlip(slip),
+            nextAgent: { read: "skip" as const, score: 0, reasons: [], penalties: [] },
+          })),
+      );
+      for (const hit of taken) claimed.add(hit.slip.id);
+      return taken;
+    };
+
+    const activeWork = section(["wip"]);
+    const mustKnow = section(["decision", "preference", "pitfall", "procedure"]);
+
+    // These two sections come from kind and trust rather than from the
+    // diff, but a decision embodied in a config file is anchored too, and
+    // a fresh agent deserves to know its code moved.
+    this.labelDrift([...activeWork, ...mustKnow], opts.checkAnchorDrift);
 
     return {
-      paths: normalized,
-      // Reverse lookup is retrieval, so it leaves the same content-free
-      // receipt and shows up in the same quality report.
       traceId: this.recordRecallTrace(
-        `touching:${normalized.join(" ")}`,
-        hits.map((hit) => hit.slip.id),
-        null,
+        `orientation:${tree.branch ?? "-"} ${paths.join(" ")}`.trim(),
+        [...hazards, ...activeWork, ...mustKnow].map((hit) => hit.slip.id),
+        activeHandoff?.id ?? null,
       ),
-      hits,
+      branch: tree.branch,
+      paths,
+      worktreeUnavailable: tree.unavailable,
+      pathsTruncated: tree.truncated,
+      activeHandoff,
+      hazards,
+      activeWork,
+      mustKnow,
     };
   }
 
@@ -670,19 +788,68 @@ export class Dejavu {
   }
 }
 
+/**
+ * Approximate token cost of one rendered memory.
+ *
+ * Deliberately cheap and deterministic. English/code averages near four
+ * characters per token; provenance/formatting receives a fixed allowance.
+ */
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4) + 42;
+}
+
 function fitRecallBudget<T extends { slip: Slip }>(hits: T[], maxTokens: number): T[] {
   if (!Number.isFinite(maxTokens) || maxTokens <= 0) return [];
   const selected: T[] = [];
   let used = 0;
   for (const hit of hits) {
-    // Deliberately cheap and deterministic. English/code averages near four
-    // characters per token; provenance/formatting receives a fixed allowance.
-    const estimate = Math.ceil(hit.slip.text.length / 4) + 42;
+    const estimate = estimateTokens(hit.slip.text);
     if (selected.length > 0 && used + estimate > maxTokens) break;
     selected.push(hit);
     used += estimate;
   }
   return selected;
+}
+
+/**
+ * A shared budget drawn down across several packet sections.
+ *
+ * `recall` fits one flat list, so a prefix scan is enough. An orientation
+ * packet has sections in priority order and a handoff that must be paid
+ * for out of the same allowance, so the remaining budget has to survive
+ * from one section to the next.
+ *
+ * Nothing is force-included. If the handoff and the hazards consume the
+ * whole budget, the later sections are genuinely empty — which is the
+ * honest outcome, since those are the sections the caller ranked lowest.
+ */
+class PacketBudget {
+  private tokens: number;
+  private slots: number;
+
+  constructor(maxTokens: number, maxHits: number) {
+    this.tokens = Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 0;
+    this.slots = Math.max(0, maxHits);
+  }
+
+  /** Charge for content that is not a hit, such as the active handoff. */
+  charge(text: string): void {
+    this.tokens -= estimateTokens(text);
+  }
+
+  /** Take as many hits as the remaining budget affords, in order. */
+  take<T extends { slip: Slip }>(hits: T[]): T[] {
+    const selected: T[] = [];
+    for (const hit of hits) {
+      if (this.slots <= 0) break;
+      const estimate = estimateTokens(hit.slip.text);
+      if (estimate > this.tokens) break;
+      selected.push(hit);
+      this.tokens -= estimate;
+      this.slots -= 1;
+    }
+    return selected;
+  }
 }
 
 /** Open a dejavu instance at the default path (~/.dejavu/dejavu.db). */

@@ -192,6 +192,53 @@ export interface RecallResult {
   activeHandoff: Handoff | null;
 }
 
+export interface OrientationOptions {
+  /** Approximate output budget, shared across the handoff and every section. */
+  maxTokens?: number;
+  /** Max hits across all sections combined. */
+  limit?: number;
+  /**
+   * Use these repository-relative paths instead of reading the working
+   * tree. Pass `[]` to compose a packet with no hazard section at all.
+   */
+  paths?: string[];
+  /** Branch to report, when the caller already knows it. */
+  branch?: string | null;
+  /** Override the instance default for checking anchored slips for drift. */
+  checkAnchorDrift?: boolean;
+}
+
+/**
+ * The packet a session opens with.
+ *
+ * Three sections in the order a fresh agent needs them, rather than one
+ * flat list ordered by recency:
+ *
+ * - `hazards` — memory about the code this session is *already* changing.
+ * - `activeWork` — what is open in this repository.
+ * - `mustKnow` — the durable decisions and preferences that generic best
+ *   practice would get wrong.
+ */
+export interface OrientationPacket {
+  /** Content-free receipt id covering the whole packet. */
+  traceId: string | null;
+  /** Current branch, when the checkout has one. */
+  branch: string | null;
+  /** Changed paths the hazard section was built from. */
+  paths: string[];
+  /** True when the working tree could not be read, as opposed to being clean. */
+  worktreeUnavailable: boolean;
+  /** True when the diff was longer than the path cap. */
+  pathsTruncated: boolean;
+  activeHandoff: Handoff | null;
+  /** Memory anchored to the changed files, most suspect first. */
+  hazards: NextAgentHit[];
+  /** Open work in this repository scope. */
+  activeWork: NextAgentHit[];
+  /** Durable decisions, preferences, pitfalls, and procedures, by trust. */
+  mustKnow: NextAgentHit[];
+}
+
 /** Result of a reverse lookup: memory anchored to a set of files. */
 export interface TouchingResult {
   /** The repository-relative paths that were looked up. */
