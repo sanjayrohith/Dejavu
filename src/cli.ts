@@ -19,11 +19,21 @@
  * decaying prompts; the tool is the prompt.
  */
 
-import { dirname } from "node:path";
-import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { Dejavu, SharedDejavu, defaultDbPath, driftIsSuspect, rollupDrift } from "./index.ts";
 import { formatTouching } from "./format.ts";
-import { checkpoint, describePreserve, finish, orient, parseHarnessEvent } from "./harness.ts";
+import {
+  checkpoint,
+  claudeCodeHooks,
+  describePreserve,
+  finish,
+  mergeHooks,
+  orient,
+  parseHarnessEvent,
+  unmergeHooks,
+} from "./harness.ts";
 import { currentSessionId } from "./lifecycle.ts";
 
 function usage(): never {
@@ -45,6 +55,8 @@ Usage:
   dejavu assess <trace> <useful|wrong|missed|no_memory_needed> [note]
   dejavu eval                  Show scoped recall-quality evidence
   dejavu forget-session <id> --yes  Expire a session's scoped slips
+  dejavu install claude-code [--global] [--print] [--uninstall]
+                               Wire session hooks into Claude Code settings
   dejavu session start [--harness=claude-code]   Orient a new session (reads hook JSON on stdin)
   dejavu session checkpoint    Preserve this session's work before compaction
   dejavu session end           Preserve, then release the session claim
@@ -335,6 +347,69 @@ function cmdForgetSession(args: string[]): void {
   const d = new Dejavu({ path: dbPath(), skipGc: true });
   console.log(`expired ${d.forgetSession(sessionId)} slip(s) from ${sessionId} in ${d.scope}`);
   d.close();
+}
+
+/**
+ * Wire Dejavu's session hooks into a harness's settings file.
+ *
+ * Writing into somebody else's configuration deserves care, so this
+ * refuses to touch a file it cannot parse, preserves every hook it did
+ * not put there, replaces a previous Dejavu install rather than stacking
+ * a second copy, supports --print for a dry run, and can uninstall.
+ */
+function cmdInstall(args: string[]): void {
+  const target = args[0];
+  if (target !== "claude-code") {
+    console.error("usage: dejavu install claude-code [--global] [--print] [--uninstall]");
+    process.exit(1);
+  }
+  const global = args.includes("--global");
+  const settingsPath = global
+    ? join(homedir(), ".claude", "settings.json")
+    : join(process.cwd(), ".claude", "settings.json");
+
+  // Reflect however this CLI was actually invoked, so a clone wires the
+  // clone and an installed copy wires the installed copy.
+  const command = process.env.DEJAVU_COMMAND ?? `bun run ${join(import.meta.dir, "cli.ts")}`;
+
+  let settings: Record<string, unknown> = {};
+  if (existsSync(settingsPath)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(settingsPath, "utf8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
+      settings = parsed as Record<string, unknown>;
+    } catch (err) {
+      console.error(
+        `dejavu install: ${settingsPath} is not valid JSON (${err instanceof Error ? err.message : String(err)}).`,
+      );
+      console.error("Refusing to overwrite it. Fix or move the file and re-run.");
+      process.exit(1);
+    }
+  }
+
+  const next = args.includes("--uninstall")
+    ? unmergeHooks(settings)
+    : mergeHooks(settings, claudeCodeHooks(command));
+  const rendered = `${JSON.stringify(next, null, 2)}\n`;
+
+  if (args.includes("--print")) {
+    console.log(rendered);
+    return;
+  }
+
+  mkdirSync(dirname(settingsPath), { recursive: true });
+  writeFileSync(settingsPath, rendered);
+
+  if (args.includes("--uninstall")) {
+    console.log(`dejavu: removed session hooks from ${settingsPath}`);
+    return;
+  }
+  console.log(`dejavu: session hooks written to ${settingsPath}`);
+  console.log(`  SessionStart  → orientation packet (also fires after compaction)`);
+  console.log(`  PreCompact    → keep this session's drafts before context is lost`);
+  console.log(`  SessionEnd    → keep drafts, roll up a handoff, release the session`);
+  console.log(`\nUsing: ${command}`);
+  console.log(`Set DEJAVU_COMMAND to override, or re-run with --print to inspect first.`);
 }
 
 /**
@@ -673,6 +748,9 @@ switch (cmd) {
     break;
   case "forget-session":
     cmdForgetSession(rest);
+    break;
+  case "install":
+    cmdInstall(rest);
     break;
   case "session":
     await cmdSession(rest);

@@ -206,6 +206,117 @@ export function finish(dejavu: Dejavu, event: HarnessEvent): PreserveResult {
   return result;
 }
 
+/** One registered hook command in a Claude Code settings file. */
+interface HookCommand {
+  type: "command";
+  command: string;
+  timeout?: number;
+  statusMessage?: string;
+}
+
+interface HookGroup {
+  matcher?: string;
+  hooks: HookCommand[];
+}
+
+type HookSettings = Record<string, HookGroup[]>;
+
+/**
+ * The three hook registrations that wire a harness into the lifecycle.
+ *
+ * No matchers: SessionStart should fire for `startup`, `resume` and
+ * `fork` alike, and — importantly — for `compact`, which is how an agent
+ * gets re-oriented after its context is compacted away. PreCompact
+ * should fire for both manual and automatic compaction.
+ *
+ * Timeouts are short on purpose. Claude Code gives session-end hooks a
+ * 1.5-second shared budget, and a memory packet that arrives late is
+ * worth less than a session that starts promptly.
+ */
+export function claudeCodeHooks(command: string): HookSettings {
+  const entry = (phase: HarnessPhase, timeout: number): HookGroup => ({
+    hooks: [
+      {
+        type: "command",
+        command: `${command} session ${phase} --harness=claude-code`,
+        timeout,
+        statusMessage: DEJAVU_HOOK_TAG,
+      },
+    ],
+  });
+  return {
+    SessionStart: [entry("start", 10)],
+    PreCompact: [entry("checkpoint", 5)],
+    SessionEnd: [entry("end", 5)],
+  };
+}
+
+/** Marks a hook group as ours, so re-installing replaces rather than duplicates. */
+export const DEJAVU_HOOK_TAG = "dejavu";
+
+function isDejavuGroup(group: unknown): boolean {
+  if (!group || typeof group !== "object") return false;
+  const hooks = (group as HookGroup).hooks;
+  if (!Array.isArray(hooks)) return false;
+  return hooks.some(
+    (hook) =>
+      hook?.statusMessage === DEJAVU_HOOK_TAG ||
+      (typeof hook?.command === "string" && /\bdejavu\b/.test(hook.command) && /\bsession\b/.test(hook.command)),
+  );
+}
+
+/**
+ * Merge Dejavu's hooks into an existing settings object.
+ *
+ * Returns a new object; the input is not mutated. Other people's hooks on
+ * the same events are preserved, and a previous Dejavu install is
+ * replaced rather than duplicated, so re-running the installer after
+ * moving the binary does the right thing.
+ */
+export function mergeHooks(
+  settings: Record<string, unknown>,
+  hooks: HookSettings,
+): Record<string, unknown> {
+  const existingHooks =
+    settings.hooks && typeof settings.hooks === "object" && !Array.isArray(settings.hooks)
+      ? { ...(settings.hooks as Record<string, unknown>) }
+      : {};
+
+  for (const [eventName, groups] of Object.entries(hooks)) {
+    const current = Array.isArray(existingHooks[eventName])
+      ? (existingHooks[eventName] as unknown[])
+      : [];
+    existingHooks[eventName] = [...current.filter((group) => !isDejavuGroup(group)), ...groups];
+  }
+
+  return { ...settings, hooks: existingHooks };
+}
+
+/**
+ * Remove Dejavu's hooks from a settings object, leaving everything else.
+ *
+ * Anything that installs into somebody's configuration should be able to
+ * take itself back out.
+ */
+export function unmergeHooks(settings: Record<string, unknown>): Record<string, unknown> {
+  if (!settings.hooks || typeof settings.hooks !== "object" || Array.isArray(settings.hooks)) {
+    return { ...settings };
+  }
+  const remaining: Record<string, unknown> = {};
+  for (const [eventName, groups] of Object.entries(settings.hooks as Record<string, unknown>)) {
+    if (!Array.isArray(groups)) {
+      remaining[eventName] = groups;
+      continue;
+    }
+    const kept = groups.filter((group) => !isDejavuGroup(group));
+    if (kept.length > 0) remaining[eventName] = kept;
+  }
+  const next = { ...settings };
+  if (Object.keys(remaining).length > 0) next.hooks = remaining;
+  else delete next.hooks;
+  return next;
+}
+
 /**
  * A one-line report for the human, not the agent.
  *
