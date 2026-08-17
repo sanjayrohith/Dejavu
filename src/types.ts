@@ -237,6 +237,15 @@ export interface OrientationPacket {
   activeWork: NextAgentHit[];
   /** Durable decisions, preferences, pitfalls, and procedures, by trust. */
   mustKnow: NextAgentHit[];
+  /**
+   * Everything else still worth carrying, by trust.
+   *
+   * Kind inference is deliberately conservative, so a great deal of real
+   * memory lands as `note` or `fact`. Without this section a packet would
+   * silently drop it — which would make orientation worse than the
+   * recency list it replaces for anyone whose agent does not set `kind`.
+   */
+  other: NextAgentHit[];
 }
 
 /** Result of a reverse lookup: memory anchored to a set of files. */

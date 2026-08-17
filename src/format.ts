@@ -173,13 +173,19 @@ export function formatOrientation(
     for (const hit of packet.mustKnow) parts.push(formatHit(hit, links));
   }
 
+  if (packet.other.length > 0) {
+    parts.push(`# also known — ${packet.other.length} other kept memory in this repository`);
+    for (const hit of packet.other) parts.push(formatHit(hit, links));
+  }
+
   const empty =
     !packet.activeHandoff &&
     packet.hazards.length === 0 &&
     packet.activeWork.length === 0 &&
-    packet.mustKnow.length === 0;
+    packet.mustKnow.length === 0 &&
+    packet.other.length === 0;
   if (empty) {
-    parts.push(`# orientation — nothing kept yet\nNo prior memory in this repository. Ask the user, or proceed.`);
+    parts.push(`# nothing kept yet\nNo prior memory in this repository. Ask the user, or proceed.`);
   }
 
   return parts.join("\n\n");

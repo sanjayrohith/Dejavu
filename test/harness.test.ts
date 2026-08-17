@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Dejavu } from "../src/index.ts";
@@ -38,7 +38,11 @@ function dbPath(): string {
 }
 
 function open(path: string, sessionId?: string): Dejavu {
-  return new Dejavu({ path, skipGc: true, scope: SCOPE, sessionId });
+  // The anchor root is pinned to a scratch directory so orientation never
+  // reads the working tree of whoever is running the suite.
+  const anchorRoot = mkdtempSync(join(tmpdir(), "dejavu-harness-root-"));
+  dirs.push(anchorRoot);
+  return new Dejavu({ path, skipGc: true, scope: SCOPE, sessionId, anchorRoot });
 }
 
 function event(overrides: Partial<HarnessEvent> = {}): HarnessEvent {
@@ -184,6 +188,110 @@ describe("orientation at session start", () => {
     const path = dbPath();
     const d = open(path, "instance-session");
     expect(orient(d, event()).sessionId).toBe("instance-session");
+    d.close();
+  });
+});
+
+describe("orientation from the working tree", () => {
+  function git(root: string, ...args: string[]): void {
+    const result = Bun.spawnSync(["git", ...args], {
+      cwd: root,
+      stdout: "ignore",
+      stderr: "pipe",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_NAME: "test",
+        GIT_AUTHOR_EMAIL: "test@example.com",
+        GIT_COMMITTER_NAME: "test",
+        GIT_COMMITTER_EMAIL: "test@example.com",
+      },
+    });
+    if (!result.success) {
+      throw new Error(`git ${args.join(" ")} failed: ${new TextDecoder().decode(result.stderr)}`);
+    }
+  }
+
+  /** A real checkout, because the point is that git is actually consulted. */
+  function checkout(): string {
+    const dir = mkdtempSync(join(tmpdir(), "dejavu-harness-tree-"));
+    dirs.push(dir);
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src", "auth.ts"), "export const timeout = 30;\n");
+    git(dir, "init", "--initial-branch=main");
+    git(dir, "add", ".");
+    git(dir, "commit", "-m", "initial");
+    return dir;
+  }
+
+  function openIn(root: string, path: string, sessionId?: string): Dejavu {
+    return new Dejavu({ path, skipGc: true, scope: SCOPE, sessionId, anchorRoot: root });
+  }
+
+  test("surfaces memory about the files this session is already changing", () => {
+    const root = checkout();
+    const path = dbPath();
+
+    const writer = openIn(root, path, "writer");
+    writer.keep([
+      writer.remember("refreshToken double-refreshes in the middleware", {
+        kind: "pitfall",
+        anchors: ["src/auth.ts"],
+      }).id,
+    ], { noChainRollup: true });
+    writer.close();
+
+    writeFileSync(join(root, "src", "auth.ts"), "export const timeout = 90;\n// mid-edit\n");
+
+    const reader = openIn(root, path, "reader");
+    const result = orient(reader, event({ sessionId: "reader" }));
+    expect(result.branch).toBe("main");
+    expect(result.changedFiles).toBe(1);
+    expect(result.context).toContain("# hazards");
+    expect(result.context).toContain("refreshToken double-refreshes");
+    expect(result.context).toContain("CODE CHANGED");
+    reader.close();
+  });
+
+  test("reports the branch and a clean tree when nothing is being changed", () => {
+    const root = checkout();
+    const path = dbPath();
+    const d = openIn(root, path, "session");
+    d.keep([d.remember("the deploy script needs sudo").id], { noChainRollup: true });
+
+    const result = orient(d, event({ sessionId: "session" }));
+    expect(result.branch).toBe("main");
+    expect(result.changedFiles).toBe(0);
+    expect(result.context).toContain("working tree clean");
+    d.close();
+  });
+
+  test("orients normally outside a checkout instead of failing", () => {
+    const plain = mkdtempSync(join(tmpdir(), "dejavu-harness-plain-"));
+    dirs.push(plain);
+    const path = dbPath();
+    const d = openIn(plain, path, "session");
+    d.keep([d.remember("the deploy script needs sudo").id], { noChainRollup: true });
+
+    const result = orient(d, event({ sessionId: "session" }));
+    expect(result.branch).toBeNull();
+    expect(result.changedFiles).toBe(0);
+    expect(result.memories).toBeGreaterThan(0);
+    expect(result.context).toContain("deploy script needs sudo");
+    d.close();
+  });
+
+  test("the working-tree read can be skipped entirely", () => {
+    const root = checkout();
+    const path = dbPath();
+    const d = openIn(root, path, "session");
+    d.keep([
+      d.remember("a pitfall about auth", { kind: "pitfall", anchors: ["src/auth.ts"] }).id,
+    ], { noChainRollup: true });
+    writeFileSync(join(root, "src", "auth.ts"), "export const timeout = 90;\n");
+
+    const result = orient(d, event({ sessionId: "session" }), { worktree: false });
+    expect(result.changedFiles).toBe(0);
+    expect(result.context).not.toContain("# hazards");
     d.close();
   });
 });

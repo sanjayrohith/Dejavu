@@ -421,16 +421,21 @@ export class Dejavu {
 
     const activeWork = section(["wip"]);
     const mustKnow = section(["decision", "preference", "pitfall", "procedure"]);
+    // No kind filter: whatever the typed sections did not claim. Kind
+    // inference is conservative, so most un-kinded memory is a `note` —
+    // dropping it would make this packet worse than the recency list it
+    // replaces for anyone whose agent never sets `kind`.
+    const other = section([]);
 
-    // These two sections come from kind and trust rather than from the
-    // diff, but a decision embodied in a config file is anchored too, and
-    // a fresh agent deserves to know its code moved.
-    this.labelDrift([...activeWork, ...mustKnow], opts.checkAnchorDrift);
+    // These sections come from kind and trust rather than from the diff,
+    // but a decision embodied in a config file is anchored too, and a
+    // fresh agent deserves to know its code moved.
+    this.labelDrift([...activeWork, ...mustKnow, ...other], opts.checkAnchorDrift);
 
     return {
       traceId: this.recordRecallTrace(
         `orientation:${tree.branch ?? "-"} ${paths.join(" ")}`.trim(),
-        [...hazards, ...activeWork, ...mustKnow].map((hit) => hit.slip.id),
+        [...hazards, ...activeWork, ...mustKnow, ...other].map((hit) => hit.slip.id),
         activeHandoff?.id ?? null,
       ),
       branch: tree.branch,
@@ -441,6 +446,7 @@ export class Dejavu {
       hazards,
       activeWork,
       mustKnow,
+      other,
     };
   }
 

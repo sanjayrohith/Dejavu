@@ -114,6 +114,31 @@ describe("orientation sections", () => {
     d.close();
   });
 
+  test("but untyped memory is still carried, not silently dropped", () => {
+    const root = workspace();
+    const d = open(root);
+    // Kind inference is conservative, so this lands as a plain note. An
+    // agent that never sets `kind` must not end up with an empty packet.
+    keep(d, "the deploy script needs sudo");
+    const packet = d.orientation({ paths: [] });
+
+    expect(packet.mustKnow).toEqual([]);
+    expect(packet.other.map((hit) => hit.slip.text)).toEqual(["the deploy script needs sudo"]);
+    d.close();
+  });
+
+  test("the fallback section does not repeat what a typed section claimed", () => {
+    const root = workspace();
+    const d = open(root);
+    const decision = keep(d, "we chose Vitest over Jest", { kind: "decision" });
+    keep(d, "an incidental observation", { kind: "note" });
+
+    const packet = d.orientation({ paths: [] });
+    expect(packet.mustKnow.map((hit) => hit.slip.id)).toEqual([decision]);
+    expect(packet.other.map((hit) => hit.slip.id)).not.toContain(decision);
+    d.close();
+  });
+
   test("must-know is ordered by trust, not by what was kept last", () => {
     const root = workspace();
     const d = open(root);
@@ -183,7 +208,8 @@ describe("orientation budget", () => {
     for (let i = 0; i < 5; i += 1) keep(d, `decision ${i}`, { kind: "decision" });
 
     const packet = d.orientation({ paths: ["src/auth.ts"], limit: 3 });
-    const total = packet.hazards.length + packet.activeWork.length + packet.mustKnow.length;
+    const total =
+      packet.hazards.length + packet.activeWork.length + packet.mustKnow.length + packet.other.length;
     expect(total).toBe(3);
     d.close();
   });
@@ -227,6 +253,7 @@ describe("orientation outside a working tree", () => {
     expect(packet.hazards).toEqual([]);
     expect(packet.activeWork).toEqual([]);
     expect(packet.mustKnow).toEqual([]);
+    expect(packet.other).toEqual([]);
     d.close();
   });
 });

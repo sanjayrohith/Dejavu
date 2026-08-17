@@ -31,7 +31,7 @@
  */
 
 import type { Dejavu } from "./index.ts";
-import { formatRecents } from "./format.ts";
+import { formatOrientation } from "./format.ts";
 import { clearSessionPointer, writeSessionPointer } from "./session.ts";
 
 /** The three moments in a session where memory has something to do. */
@@ -104,8 +104,12 @@ export interface OrientationResult {
   context: string;
   /** Whether an active handoff was found for this repository. */
   handoff: boolean;
-  /** How many kept memories the packet carries. */
+  /** How many kept memories the packet carries, across every section. */
   memories: number;
+  /** Branch the session opened on, when the checkout has one. */
+  branch: string | null;
+  /** How many changed files the hazard section was built from. */
+  changedFiles: number;
 }
 
 /**
@@ -117,33 +121,40 @@ export interface OrientationResult {
  * using?" does not. Injecting the packet removes the judgement call
  * entirely — the agent starts the session already holding it.
  *
- * The packet is the same bounded, cited output recall produces. It is not
- * a transcript, and it respects the same token budget.
+ * What the packet *contains* matters as much as its arrival. Recency
+ * alone was a poor answer and got worse once `preserve` started promoting
+ * a session's whole draft pile onto a single `kept_at`. The checkout
+ * already says what this session is about, so orientation is composed
+ * from the working tree first: memory anchored to the files already
+ * changed, then open work, then standing decisions.
+ *
+ * Still bounded, still cited, still no transcript and no model call.
  */
 export function orient(
   dejavu: Dejavu,
   event: HarnessEvent,
-  options: { maxTokens?: number; limit?: number } = {},
+  options: { maxTokens?: number; limit?: number; worktree?: boolean } = {},
 ): OrientationResult {
   const sessionId = event.sessionId ?? dejavu.sessionId;
   writeSessionPointer(dejavu.scope, sessionId, event.harness, { dbPath: dejavu.storage.path });
 
-  const recalled = dejavu.recall("", {
+  const packet = dejavu.orientation({
     limit: options.limit ?? 6,
     maxTokens: options.maxTokens ?? 700,
+    // Anchor paths resolve against the checkout root, which is also where
+    // the diff has to be read from — so the packet deliberately uses the
+    // repository root rather than `event.cwd`. A diff read from a
+    // subdirectory would produce paths no stored anchor could match.
+    ...(options.worktree === false ? { paths: [] } : {}),
   });
-  const memories = recalled.hits.length;
-  const handoff = recalled.activeHandoff !== null;
-  if (memories === 0 && !handoff) {
-    return { sessionId, context: "", handoff, memories };
-  }
 
-  return {
-    sessionId,
-    context: formatRecents(recalled.activeHandoff, recalled.hits.map((hit) => hit.slip), recalled.traceId),
-    handoff,
-    memories,
-  };
+  const memories =
+    packet.hazards.length + packet.activeWork.length + packet.mustKnow.length + packet.other.length;
+  const handoff = packet.activeHandoff !== null;
+  const shape = { sessionId, handoff, memories, branch: packet.branch, changedFiles: packet.paths.length };
+  if (memories === 0 && !handoff) return { ...shape, context: "" };
+
+  return { ...shape, context: formatOrientation(packet, dejavu.storage) };
 }
 
 export interface PreserveResult {

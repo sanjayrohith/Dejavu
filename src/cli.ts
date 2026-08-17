@@ -7,6 +7,7 @@
  *   Humans poking at the DB:
  *     init / verify / stats / ls / show / handoffs
  *     recall / remember / handoff / resolve / link / assess / eval
+ *     orient                    The packet a session start would inject
  *     touching / anchors        Memory by file, and whether its code moved
  *     forget-session            Scoped, confirmation-gated cleanup
  *
@@ -31,7 +32,7 @@ import { dirname, join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { Dejavu, SharedDejavu, defaultDbPath, driftIsSuspect, rollupDrift } from "./index.ts";
-import { formatTouching } from "./format.ts";
+import { formatOrientation, formatTouching } from "./format.ts";
 import {
   checkpoint,
   claudeCodeHooks,
@@ -56,6 +57,8 @@ Usage:
   dejavu verify                Check schema, SQLite integrity, and FTS coverage
   dejavu recall [query] [--tokens=N] [--kind=decision,pitfall]
   dejavu remember <text> [--keep] [--kind=decision] [--anchor=src/a.ts:42#fn]
+  dejavu orient [--tokens=N] [--limit=N]
+                               Show the packet a new session would open with
   dejavu touching <path...>     Memory anchored to these files
   dejavu touching --diff        Memory anchored to your uncommitted changes
   dejavu anchors [--drifted]    Anchored memory and whether its code moved
@@ -249,6 +252,25 @@ function diffPaths(root: string): string[] {
     throw new Error("dejavu touching --diff: could not read the diff (is this a git checkout with commits?)");
   }
   return paths;
+}
+
+/**
+ * Show the packet a session would open with, right now.
+ *
+ * The same composition a `SessionStart` hook injects, printed for the
+ * person rather than the agent. Without this the only way to see what an
+ * agent is actually being handed is to simulate a hook, which makes a
+ * packet that is quietly wrong very hard to notice.
+ */
+function cmdOrient(args: string[]): void {
+  const maxTokens = Number(args.find((arg) => arg.startsWith("--tokens="))?.split("=")[1] ?? 700);
+  const limit = Number(args.find((arg) => arg.startsWith("--limit="))?.split("=")[1] ?? 6);
+  const d = new Dejavu({ path: dbPath(), skipGc: true });
+  try {
+    console.log(formatOrientation(d.orientation({ maxTokens, limit }), d.storage));
+  } finally {
+    d.close();
+  }
 }
 
 function cmdTouching(args: string[]): void {
@@ -739,6 +761,9 @@ switch (cmd) {
     break;
   case "remember":
     cmdRemember(rest);
+    break;
+  case "orient":
+    cmdOrient(rest);
     break;
   case "touching":
     cmdTouching(rest);
