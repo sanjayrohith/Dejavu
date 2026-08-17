@@ -495,6 +495,67 @@ Still deterministic, still local, still no model call. The branch comes out of `
 
 > Composition is proven by fixtures and the cost is measured. That this makes agents *continue better* than the recency packet did is a **hypothesis** — it needs the same real-session comparison Loop 5 owes the hooks themselves. See [`docs/bench/claims.md`](docs/bench/claims.md).
 
+### Retrieval changes you can check before you ship them
+
+Dejavu's rule is that retrieval changes have to be earned by an eval. Until now there was no instrument to satisfy it, and the plan for building one waited on agents choosing to call `assess` after they had already finished the task — the exact discretionary behaviour Loop 4 showed does not survive task pressure.
+
+But every retrieval already leaves a **content-free receipt**: the query, the scope, the ids that came back, and when. So the corpus was accumulating the whole time.
+
+```bash
+dejavu eval --replay
+```
+
+```text
+scope: repo:dejavu:9bea41ad8915
+replayed 8 receipt(s) as of when each was served
+
+tier          replayed  identical  reordered  changed
+----------------------------------------------------
+exact                6          5          0        1
+approximate          2          2          –        0
+
+agreement with what was served: exact 83.3%, approximate 100.0%
+
+moved:
+  01M07T7BE44XSB6RNDRH6FWDMZ  recall      "token refresh"          +0 -1
+```
+
+That run is real: flipping FTS from `OR` to `AND` between two queries, and replay localizing the damage to the one receipt it broke.
+
+**As of when it was served** is what makes this honest. Slips are append-only — text is never edited, and a state change only writes `kept_at` or `expired_at` — so what a query could see at a past instant is derivable from the rows as they stand today. Nothing had to be journalled; the immutability was already the design. Handoffs reconstruct through `resolved_at`, supersession through the link's own timestamp. Without that, every memory written since would look like a retrieval improvement.
+
+To check a change you are making, capture and compare:
+
+```bash
+dejavu eval --replay --json > before.json
+# ...change retrieval...
+dejavu eval --replay --json > after.json
+diff before.json after.json
+```
+
+<details>
+<summary><b>What it measures, and what it does not</b></summary>
+
+<br/>
+
+It measures **stability and coverage**, not truth. A memory can be retrieved identically every time and still be the wrong memory; only an assessment says otherwise. So a difference is **not automatically a regression** — an intentional improvement lands in the same `changed` column, and is supposed to. The number's job is to make the change visible and quantified before it ships.
+
+Three things are not recoverable, and replay does not pretend they are:
+
+| Not recoverable | Consequence |
+|---|---|
+| `used_count` / `wrong_count` — bare counters, no history | anything ordered by evidence trust replays approximately |
+| the working tree at a past instant | drift labelling is suppressed rather than guessed |
+| limits and token budgets — never recorded | replay asks for exactly as many hits as were served, and lifts the budget |
+
+That last one is why the comparison is *"the top N, where N is what you got"*: it isolates what retrieval **selected** from how much of it **fitted**.
+
+Hence two tiers. `recall`, recents, and reverse lookups replay **exact** — set and order both compared. Orientation replays **approximate** — set compared, order not, because the counters that ordered it are gone. The two are never added together into one figure.
+
+A replayed retrieval records no receipt and never leaves this repository's scope, so replay cannot grow or leak the corpus it is measuring.
+
+</details>
+
 ## Agent API
 
 ```ts
@@ -549,6 +610,7 @@ d.forget(slipId)
 d.link(fromId, toId, "supersedes" | "contradicts" | "related")
 d.assessRecall(traceId, assessment, note?)
 d.recallReport()
+d.recall(query, { asOf })           // retrieve as of a past instant, for replay
 d.anchorsFor(slipId)
 d.anchorStates(slipId)
 ```
@@ -624,7 +686,9 @@ dejavu resolve <handoff-id> completed
 
 dejavu link <new-id> supersedes <old-id>
 dejavu assess <trace-id> useful "saved a repository scan"
-dejavu eval
+dejavu eval                           # scoped recall-quality evidence
+dejavu eval --replay                  # re-run recorded retrievals against today's code
+dejavu eval --replay --json           # same, for diffing before/after a change
 
 dejavu ls
 dejavu show <slip-id>
@@ -652,7 +716,7 @@ The default database is `~/.dejavu/dejavu.db`.
 | `links` | Supersession, contradiction, and related-memory edges |
 | `anchors` | Immutable pointers from a slip to code, with the blob id captured at write time |
 | `handoffs` | Active/resolved continuation packets |
-| `recall_traces` | Retrieval receipts and assessments, without duplicated memory text |
+| `recall_traces` | Retrieval receipts and assessments, without duplicated memory text — the corpus `--replay` re-runs |
 | `messages` | Local asynchronous agent mailbox |
 
 </details>
@@ -725,6 +789,7 @@ Dejavu/
 │   ├── session.ts          #   cross-process session identity
 │   ├── lifecycle.ts        #   session id + trust helpers
 │   ├── format.ts           #   bounded recall/recents packets
+│   ├── replay.ts           #   re-runs recorded receipts against current code
 │   ├── next-agent.ts       #   experimental ranker (off by default)
 │   ├── mcp.ts              #   local MCP server
 │   ├── cli.ts              #   command-line interface

@@ -6,6 +6,10 @@ All notable changes to Dejavu are documented here.
 
 ### Added
 
+- `dejavu eval --replay`: re-runs every recorded retrieval through the real pipeline, as of the instant it was served, and diffs the ids against what came back then. Needs nothing from any agent. `--json` for scripting, `--limit=N` to cap.
+- Point-in-time reconstruction: an optional `asOf` on the scoped storage queries and on `recall`, `touching`, and `orientation`. Append-only slips, handoffs, and links make state at a past instant derivable without a journal.
+- `src/replay.ts` and the `ReplayReport` type.
+
 - Working-tree orientation: the session-start packet is composed from the checkout — memory anchored to the files already changed (most suspect first), then open work, then standing decisions and preferences — instead of the most recently kept slips.
 - `Dejavu.orientation()` and the `OrientationPacket` type.
 - `dejavu orient [--tokens=N] [--limit=N]`, showing the packet a new session would open with.
@@ -38,6 +42,10 @@ All notable changes to Dejavu are documented here.
 
 ### Safety
 
+- A replayed retrieval records no receipt, so replay cannot grow the corpus it is measuring.
+- A replayed retrieval does not check anchor drift, because the working tree at a past instant is not recoverable, and orientation does not read today's tree when composing as of a past instant.
+- Replay is scoped exactly the way retrieval is: it never touches another repository's receipts.
+- Replay reports stability and coverage, and says so where the number is printed. A difference is not automatically a regression.
 - Reading the working tree never throws: no checkout, no commits, no git on `PATH`, and a git that hangs all degrade to "no worktree signal" rather than failing a session.
 - Orientation still never calls a model and never reads a transcript. The diff is bounded by a 250 ms timeout and a 200-path cap.
 - Untyped memory is carried in a trailing section rather than dropped, so a packet cannot silently lose everything an agent wrote without setting `kind`.

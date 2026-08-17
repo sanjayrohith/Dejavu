@@ -116,6 +116,7 @@ No item in this batch ships merely because it sounds intelligent.
 
 ### Query quality
 
+- [x] Replay recorded receipts against current retrieval (`dejavu eval --replay`), as of when each was served.
 - [ ] Build a minimum 100-case corpus from anonymized real recall receipts.
 - [ ] Add phrase, prefix, and acronym query expansion where fixtures prove value.
 - [ ] Add query decomposition only if multi-concept cases improve without false positives.
@@ -153,6 +154,8 @@ No item in this batch ships merely because it sounds intelligent.
 - [ ] Pi extension over the same lifecycle commands.
 - [ ] OpenCode adapter over the same lifecycle commands.
 - [ ] Re-run the loop 4 chain battery with hooks installed to test the writer-side gap.
+- [ ] Record retrieval parameters in receipts, so orientation packets replay exactly rather than approximately.
+- [ ] Commit a replay corpus and run it in `bun run check`.
 - [ ] Retry-safe write idempotency keys.
 - [ ] Prove integrations reduce repeated work rather than merely increasing calls.
 
@@ -275,6 +278,7 @@ These are deliberately below memory quality and security.
 | Lexical smoke recall@1 | 100% on 8 cases | retain |
 | Wrong-project top-3 | 0 in fixtures | 0 in real eval sample |
 | Assessed real recalls | instrumentation ready | >= 50 |
+| Replayable receipts | 100% exact-tier agreement on a seeded corpus | run on a real dogfood corpus |
 | Useful precision | not enough samples | >= 85% |
 | False recall on non-memory tasks | not enough samples | <= 5% |
 | Default recall packet | bounded | <= 800 tokens p95 |
