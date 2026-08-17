@@ -1,8 +1,10 @@
+import { driftIsSuspect } from "./anchors.ts";
 import type {
   AnchorState,
   AnchorStatus,
   Handoff,
   Link,
+  OrientationPacket,
   RecallHit,
   RecallResult,
   Slip,
@@ -46,24 +48,37 @@ export function formatRecall(
       ? `# recall("${r.query}") — repeatedly useful memory found; still verify against live state`
       : `# recall("${r.query}")`;
     parts.push(heading);
-    for (const h of r.hits) {
-      const tags =
-        h.slip.tags.length > 0 ? ` [${h.slip.tags.join(", ")}]` : "";
-      const prefix =
-        h.trust === "high"
-          ? "**[high — repeatedly useful]**"
-          : h.trust === "medium"
-            ? "**[medium — kept, not yet confirmed]**"
-            : "**[low — draft or disputed; verify]**";
-      const provenance = formatProvenance(h.slip);
-      const safety = formatLinkSafety(h.slip.id, links);
-      const next = h.nextAgent && h.nextAgent.read !== "skip" ? ` next-agent:${h.nextAgent.read}/${h.nextAgent.reasons.join("+") || "reason"}` : "";
-      parts.push(
-        `- ${prefix} ${h.slip.id} · ${h.slip.kind}${tags}${formatDriftMarker(h.drift)}${next}\n  ${h.slip.text.replace(/\n/g, "\n  ")}\n  ${provenance}${safety}${formatAnchors(h.anchors)}`,
-      );
-    }
+    for (const h of r.hits) parts.push(formatHit(h, links));
   }
   return parts.join("\n\n");
+}
+
+/**
+ * One rendered memory: trust, identity, drift, text, provenance, links.
+ *
+ * Shared by recall and orientation so the two packets cannot drift apart
+ * in how they present the same slip — an agent should not have to learn
+ * two layouts depending on which call produced the memory.
+ */
+function formatHit(hit: RecallHit & { nextAgent?: { read: string; reasons: string[] } }, links?: RecallLinkProvider): string {
+  const tags = hit.slip.tags.length > 0 ? ` [${hit.slip.tags.join(", ")}]` : "";
+  const prefix =
+    hit.trust === "high"
+      ? "**[high — repeatedly useful]**"
+      : hit.trust === "medium"
+        ? "**[medium — kept, not yet confirmed]**"
+        : "**[low — draft or disputed; verify]**";
+  const provenance = formatProvenance(hit.slip);
+  const safety = formatLinkSafety(hit.slip.id, links);
+  const next =
+    hit.nextAgent && hit.nextAgent.read !== "skip"
+      ? ` next-agent:${hit.nextAgent.read}/${hit.nextAgent.reasons.join("+") || "reason"}`
+      : "";
+  return (
+    `- ${prefix} ${hit.slip.id} · ${hit.slip.kind}${tags}${formatDriftMarker(hit.drift)}${next}\n` +
+    `  ${hit.slip.text.replace(/\n/g, "\n  ")}\n` +
+    `  ${provenance}${safety}${formatAnchors(hit.anchors)}`
+  );
 }
 
 /**
@@ -101,6 +116,91 @@ export function formatRecents(
     }
   }
   return parts.join("\n\n");
+}
+
+/**
+ * Format the packet a session opens with.
+ *
+ * Sections in the order a fresh agent needs them, each labelled with what
+ * it is and why it is there. The point of the layout is that an agent
+ * skimming the top of its context can tell "this is about the file I am
+ * already editing" from "this is a standing preference" without reading
+ * every entry — a distinction a flat recency list cannot express.
+ *
+ * Empty sections are omitted rather than printed empty. A packet with
+ * nothing in it says so plainly, because "no memory here yet" is a useful
+ * answer and an invented one is not.
+ */
+export function formatOrientation(
+  packet: OrientationPacket,
+  links?: RecallLinkProvider,
+): string {
+  const parts: string[] = [];
+  if (packet.traceId) parts.push(`# recall receipt ${packet.traceId}`);
+
+  const context = describeWorktree(packet);
+  if (context) parts.push(context);
+
+  if (packet.activeHandoff) {
+    parts.push(
+      `# ${handoffHeading(packet.activeHandoff)}\n${packet.activeHandoff.summary}` +
+        (packet.activeHandoff.next.length > 0
+          ? `\n\nnext:\n${packet.activeHandoff.next.map((n) => `- ${n}`).join("\n")}`
+          : ""),
+    );
+  }
+
+  if (packet.hazards.length > 0) {
+    const suspect = packet.hazards.filter((hit) => driftIsSuspect(hit.drift)).length;
+    const files = packet.paths.length;
+    parts.push(
+      suspect > 0
+        ? `# hazards — ${packet.hazards.length} anchored memory about the ${files} file(s) you are changing, ${suspect} about code that has since changed`
+        : `# hazards — ${packet.hazards.length} anchored memory about the ${files} file(s) you are changing`,
+    );
+    for (const hit of packet.hazards) parts.push(formatHit(hit, links));
+  }
+
+  if (packet.activeWork.length > 0) {
+    parts.push(`# active work — ${packet.activeWork.length} open item(s) in this repository`);
+    for (const hit of packet.activeWork) parts.push(formatHit(hit, links));
+  }
+
+  if (packet.mustKnow.length > 0) {
+    parts.push(
+      `# must know — ${packet.mustKnow.length} standing decision(s) and preference(s); these override generic best practice`,
+    );
+    for (const hit of packet.mustKnow) parts.push(formatHit(hit, links));
+  }
+
+  const empty =
+    !packet.activeHandoff &&
+    packet.hazards.length === 0 &&
+    packet.activeWork.length === 0 &&
+    packet.mustKnow.length === 0;
+  if (empty) {
+    parts.push(`# orientation — nothing kept yet\nNo prior memory in this repository. Ask the user, or proceed.`);
+  }
+
+  return parts.join("\n\n");
+}
+
+/**
+ * The one-line statement of where this session is.
+ *
+ * Returned empty when the working tree told us nothing — outside a
+ * checkout, or with git unavailable — because a header claiming "0
+ * changed files" would assert a clean tree we never actually observed.
+ */
+function describeWorktree(packet: OrientationPacket): string {
+  if (packet.worktreeUnavailable) return "";
+  const where = packet.branch ? `branch ${packet.branch}` : "detached HEAD";
+  if (packet.paths.length === 0) return `# orientation — ${where} · working tree clean`;
+  const truncated = packet.pathsTruncated ? ", truncated" : "";
+  return (
+    `# orientation — ${where} · ${packet.paths.length} changed file(s)${truncated}\n` +
+    packet.paths.map((path) => `- ${path}`).join("\n")
+  );
 }
 
 function handoffHeading(handoff: Handoff): string {
