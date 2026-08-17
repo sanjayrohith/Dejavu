@@ -18,7 +18,6 @@
 import { Storage, defaultDbPath, type StorageOptions } from "./storage.ts";
 import {
   currentAuthor,
-  currentSessionId,
   draftCutoff,
   isChainShaped,
   trustForSlip,
@@ -28,6 +27,7 @@ import { ulid } from "./ulid.ts";
 import { deliverPiTurn } from "./pi-turn.ts";
 import { rankForNextAgent } from "./next-agent.ts";
 import { currentMemoryContext, type MemoryContext } from "./context.ts";
+import { resolveSessionId } from "./session.ts";
 import {
   anchorRoot,
   blobShaOf,
@@ -122,6 +122,12 @@ export interface DejavuOptions extends StorageOptions {
   /** Skip auto-GC of expired drafts on init. Default: false. */
   skipGc?: boolean;
   /**
+   * Force the session id for this instance, bypassing DEJAVU_SESSION and
+   * any harness pointer. Mostly for tests and for hook commands that were
+   * handed a session id by the harness itself.
+   */
+  sessionId?: string;
+  /**
    * Directory that code anchors resolve against. Defaults to the nearest
    * checkout root, falling back to the current directory. Tests and
    * harnesses override it to point at a fixture tree.
@@ -169,6 +175,15 @@ export class Dejavu {
    * `src/auth.ts` refers to.
    */
   readonly anchorRoot: string;
+  /**
+   * The session everything this instance writes belongs to.
+   *
+   * Resolved once, at construction: DEJAVU_SESSION, then a harness
+   * pointer claimed for this scope, then the per-process id. Held on the
+   * instance so a long-lived MCP server does not start straddling two
+   * sessions if a hook re-claims the scope mid-conversation.
+   */
+  readonly sessionId: string;
 
   constructor(opts: DejavuOptions = {}) {
     this.storage = new Storage(opts);
@@ -180,6 +195,7 @@ export class Dejavu {
     this.context = opts.scope ? { ...derived, scope: opts.scope, source: "env" } : derived;
     this.scope = this.context.scope;
     this.anchorRoot = opts.anchorRoot ?? anchorRoot();
+    this.sessionId = opts.sessionId ?? resolveSessionId(this.scope, { dbPath: this.storage.path });
     if (!opts.skipGc) this.gc();
   }
 
@@ -203,7 +219,7 @@ export class Dejavu {
       ? { limit: limitOrOptions }
       : limitOrOptions;
     const limit = options.limit ?? 8;
-    const sessionId = currentSessionId();
+    const sessionId = this.sessionId;
     const raw = query.trim()
       ? this.storage.searchFts(
           query,
@@ -333,7 +349,7 @@ export class Dejavu {
 
     const slip: Slip = {
       id,
-      sessionId: opts.sessionId ?? currentSessionId(),
+      sessionId: opts.sessionId ?? this.sessionId,
       authoredBy: opts.authoredBy ?? currentAuthor(),
       scope: opts.scope ?? this.scope,
       kind: opts.kind ?? inferMemoryKind(trimmed, opts.tags),
@@ -401,7 +417,7 @@ export class Dejavu {
 
     // Only roll up for slips authored in the current session — don't
     // hijack another session's handoff slot.
-    const sessionId = currentSessionId();
+    const sessionId = this.sessionId;
     const ours = chainSlips.filter((s) => s.sessionId === sessionId && s.scope === this.scope);
     if (ours.length === 0) return;
 
@@ -430,7 +446,7 @@ export class Dejavu {
     const summary = input.summary.trim();
     if (!summary) throw new Error("dejavu.handoff: summary is empty");
 
-    const sessionId = input.sessionId ?? currentSessionId();
+    const sessionId = input.sessionId ?? this.sessionId;
     const authoredBy = input.authoredBy ?? currentAuthor();
 
     const existing = this.storage.getHandoffBySession(sessionId, input.scope ?? this.scope);
@@ -507,7 +523,7 @@ export class Dejavu {
     const id = ulid(now);
     this.storage.recordRecall({
       id,
-      sessionId: currentSessionId(),
+      sessionId: this.sessionId,
       authoredBy: currentAuthor(),
       scope: this.scope,
       query,
@@ -542,7 +558,7 @@ export class Dejavu {
     return true;
   }
 
-  forgetSession(sessionId: string = currentSessionId()): number {
+  forgetSession(sessionId: string = this.sessionId): number {
     let count = 0;
     for (const slip of this.storage.listBySession(sessionId, this.scope)) {
       if (this.forget(slip.id)) count += 1;
@@ -638,7 +654,7 @@ export class Dejavu {
   }
 
   listSession(sessionId?: string): Slip[] {
-    return this.storage.listBySession(sessionId ?? currentSessionId(), this.scope);
+    return this.storage.listBySession(sessionId ?? this.sessionId, this.scope);
   }
 
   listKept(limit: number = 50): Slip[] {
