@@ -1,7 +1,27 @@
-import { describe, expect, test, beforeEach } from "bun:test";
-import { memory } from "../src/index.ts";
+import { afterEach, describe, expect, test, beforeEach } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Dejavu, memory } from "../src/index.ts";
 import { dispatch, newDispatchState } from "../src/mcp.ts";
 import { _resetSessionForTesting } from "../src/lifecycle.ts";
+
+const dirs: string[] = [];
+
+afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+/**
+ * An in-memory instance whose anchor root is a scratch directory, so an
+ * empty-query recall orients against a known-empty tree rather than
+ * against the working tree of whoever runs the suite.
+ */
+function isolated(): Dejavu {
+  const anchorRoot = mkdtempSync(join(tmpdir(), "dejavu-mcp-root-"));
+  dirs.push(anchorRoot);
+  return new Dejavu({ path: ":memory:", skipGc: true, anchorRoot });
+}
 
 beforeEach(() => {
   _resetSessionForTesting();
@@ -9,9 +29,9 @@ beforeEach(() => {
   process.env.DEJAVU_AUTHOR = "mcp-test-agent";
 });
 
-describe("MCP dispatch — recall(empty) returns recents", () => {
-  test("blank query returns active handoff + recent kept", () => {
-    const d = memory();
+describe("MCP dispatch — recall(empty) orients", () => {
+  test("blank query returns active handoff + kept memory", () => {
+    const d = isolated();
     // Plant a handoff in a prior session
     d.handoff({
       sessionId: "prior",
@@ -26,14 +46,40 @@ describe("MCP dispatch — recall(empty) returns recents", () => {
     const r = dispatch(d, state, "recall", { query: "  " });
     expect(r.text).toContain("active handoff");
     expect(r.text).toContain("auth refactor");
-    expect(r.text).toContain("recall(recents)");
     expect(r.text).toContain("kept fact A");
     expect(r.text).toContain("kept fact B");
     d.close();
   });
 
+  test("blank query sections memory instead of listing it flat", () => {
+    const d = isolated();
+    d.keep([d.remember("always deploy with wrangler", { kind: "decision" }).id], {
+      noChainRollup: true,
+    });
+    d.keep([d.remember("blocked on the canary rollout", { kind: "wip" }).id], {
+      noChainRollup: true,
+    });
+
+    const r = dispatch(d, newDispatchState(), "recall", { query: "" });
+    expect(r.text).toContain("# must know");
+    expect(r.text).toContain("# active work");
+    d.close();
+  });
+
+  test("a kind filter still gets the flat recents view it asked for", () => {
+    const d = isolated();
+    d.keep([d.remember("always deploy with wrangler", { kind: "decision" }).id], {
+      noChainRollup: true,
+    });
+
+    const r = dispatch(d, newDispatchState(), "recall", { query: "", kinds: ["decision"] });
+    expect(r.text).toContain("recall(recents)");
+    expect(r.text).toContain("always deploy with wrangler");
+    d.close();
+  });
+
   test("blank query with empty DB still returns gracefully", () => {
-    const d = memory();
+    const d = isolated();
     const state = newDispatchState();
     const r = dispatch(d, state, "recall", { query: "" });
     expect(r.text).toContain("nothing kept yet");

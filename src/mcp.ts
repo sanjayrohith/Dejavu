@@ -28,7 +28,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Dejavu, defaultDbPath } from "./index.ts";
-import { formatRecall, formatRecents, formatTouching } from "./format.ts";
+import { formatOrientation, formatRecall, formatRecents, formatTouching } from "./format.ts";
 import { VERSION } from "./version.ts";
 
 /**
@@ -80,8 +80,16 @@ export function dispatch(
         state.recallSeen = true;
 
         if (query.trim().length === 0) {
-          const recent = dejavu.recall("", { limit, maxTokens, kinds });
-          return { text: formatRecents(recent.activeHandoff, recent.hits.map((hit) => hit.slip), recent.traceId) };
+          // An empty query is the "I do not know what to ask yet" case,
+          // which is exactly what orientation answers: the working tree
+          // first, then open work, then standing decisions. A caller who
+          // passed `kinds` has asked a narrower question than that, so
+          // the flat recents view still serves it.
+          if (kinds && kinds.length > 0) {
+            const recent = dejavu.recall("", { limit, maxTokens, kinds });
+            return { text: formatRecents(recent.activeHandoff, recent.hits.map((hit) => hit.slip), recent.traceId) };
+          }
+          return { text: formatOrientation(dejavu.orientation({ limit, maxTokens }), dejavu.storage) };
         }
 
         const r = dejavu.recall(query, { limit, maxTokens, kinds });
@@ -267,11 +275,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "recall",
       description:
-        "Search agent memory for facts, decisions, preferences, and project-specific conventions the user (or a previous agent) wrote down. Use this BEFORE answering questions about: 'this project', 'this codebase', 'this repo', the user's preferences/setup/tools, decisions made in past sessions, work-in-progress, or anything where the answer could differ from generic best practice. Returns repository-scoped hits with evidence trust (high = repeatedly useful, medium = kept but unconfirmed, low = draft or disputed), provenance, and the most recent handoff from this repository. Trust is not truth: verify mutable facts against live state. Hits anchored to code also report whether that code has changed since the memory was written — 'CODE CHANGED' or 'CODE DELETED' means re-verify before relying on it, and is a good reason to write a superseding memory. Empty or whitespace-only query returns 'what's recent' instead of searching: active handoff + the N most recent kept slips. Cheap call — use it at session start when you don't know what to ask.",
+        "Search agent memory for facts, decisions, preferences, and project-specific conventions the user (or a previous agent) wrote down. Use this BEFORE answering questions about: 'this project', 'this codebase', 'this repo', the user's preferences/setup/tools, decisions made in past sessions, work-in-progress, or anything where the answer could differ from generic best practice. Returns repository-scoped hits with evidence trust (high = repeatedly useful, medium = kept but unconfirmed, low = draft or disputed), provenance, and the most recent handoff from this repository. Trust is not truth: verify mutable facts against live state. Hits anchored to code also report whether that code has changed since the memory was written — 'CODE CHANGED' or 'CODE DELETED' means re-verify before relying on it, and is a good reason to write a superseding memory. Empty or whitespace-only query orients you instead of searching: the active handoff, memory anchored to the files you are already changing (drifted first), open work, then the standing decisions and preferences that override generic best practice. Cheap call — use it at session start when you don't know what to ask.",
       inputSchema: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Free-text search. Broaden if the first query returns no hits. Pass empty string for 'what's recent' (active handoff + recent kept slips)." },
+          query: { type: "string", description: "Free-text search. Broaden if the first query returns no hits. Pass empty string to orient: handoff + memory about the code you are changing + open work + standing decisions." },
           limit: {
             type: "number",
             description: "Max hits (default 8).",
