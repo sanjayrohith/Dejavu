@@ -46,6 +46,7 @@ import {
 import { currentSessionId } from "./lifecycle.ts";
 import { readSessionPointer } from "./session.ts";
 import { changedPaths } from "./worktree.ts";
+import { agreement, replay } from "./replay.ts";
 
 function usage(): never {
   console.log(`dejavu — local-first agent memory
@@ -67,6 +68,8 @@ Usage:
   dejavu link <from> <supersedes|contradicts|related> <to>
   dejavu assess <trace> <useful|wrong|missed|no_memory_needed> [note]
   dejavu eval                  Show scoped recall-quality evidence
+  dejavu eval --replay [--json] [--limit=N]
+                               Re-run recorded retrievals against today's code
   dejavu forget-session <id> --yes  Expire a session's scoped slips
   dejavu install claude-code [--global] [--print] [--uninstall]
                                Wire session hooks into Claude Code settings
@@ -362,19 +365,111 @@ function cmdAssess(args: string[]): void {
   d.close();
 }
 
-function cmdEval(): void {
+function cmdEval(args: string[] = []): void {
   const d = new Dejavu({ path: dbPath(), skipGc: true });
-  const report = d.recallReport();
-  console.log(`scope: ${d.scope}`);
-  console.log(`recalls: ${report.total}`);
-  console.log(`assessed: ${report.assessed}`);
-  console.log(`  useful: ${report.useful}`);
-  console.log(`  wrong: ${report.wrong}`);
-  console.log(`  missed: ${report.missed}`);
-  console.log(`  no memory needed: ${report.noMemoryNeeded}`);
-  const actionable = report.useful + report.wrong + report.missed;
-  if (actionable > 0) console.log(`useful share of actionable recalls: ${((report.useful / actionable) * 100).toFixed(1)}%`);
-  d.close();
+  try {
+    if (args.includes("--replay")) {
+      cmdEvalReplay(d, args);
+      return;
+    }
+    const report = d.recallReport();
+    console.log(`scope: ${d.scope}`);
+    console.log(`recalls: ${report.total}`);
+    console.log(`assessed: ${report.assessed}`);
+    console.log(`  useful: ${report.useful}`);
+    console.log(`  wrong: ${report.wrong}`);
+    console.log(`  missed: ${report.missed}`);
+    console.log(`  no memory needed: ${report.noMemoryNeeded}`);
+    const actionable = report.useful + report.wrong + report.missed;
+    if (actionable > 0) console.log(`useful share of actionable recalls: ${((report.useful / actionable) * 100).toFixed(1)}%`);
+    if (report.total > 0) console.log(`\n(dejavu eval --replay re-runs these against today's retrieval)`);
+  } finally {
+    d.close();
+  }
+}
+
+/**
+ * Re-run recorded retrievals and report what moved.
+ *
+ * The closing note is not decoration. The number this prints is easy to
+ * read as a grade, and it is not one: an intentional retrieval
+ * improvement lands here as `changed`, exactly like a regression does.
+ * Saying so next to the number is cheaper than explaining it afterwards.
+ */
+function cmdEvalReplay(d: Dejavu, args: string[]): void {
+  const limit = args.find((arg) => arg.startsWith("--limit="))?.split("=")[1];
+  const report = replay(d, limit ? { limit: Number(limit) } : {});
+
+  if (args.includes("--json")) {
+    console.log(JSON.stringify(report, null, 2));
+    return;
+  }
+
+  console.log(`scope: ${report.scope}`);
+  console.log(`replayed ${report.traces} receipt(s) as of when each was served`);
+  if (report.traces === 0) {
+    console.log(`\n(nothing recorded yet — retrievals in this repository leave the receipts this replays)`);
+    return;
+  }
+
+  const pad = (value: string, width: number) => value.padEnd(width);
+  const num = (value: number, width: number) => String(value).padStart(width);
+  console.log();
+  console.log(`${pad("tier", 14)}replayed  identical  reordered  changed`);
+  console.log("-".repeat(52));
+  for (const [name, summary] of [["exact", report.exact], ["approximate", report.approximate]] as const) {
+    if (summary.replayed === 0) continue;
+    console.log(
+      pad(name, 14) +
+        num(summary.replayed, 8) +
+        num(summary.identical, 11) +
+        // Order is not compared in the approximate tier, so a zero there
+        // would read as "nothing was reordered" rather than "not checked".
+        (name === "approximate" ? "          –" : num(summary.reordered, 11)) +
+        num(summary.changed, 9),
+    );
+  }
+  if (report.skipped > 0) console.log(`skipped: ${report.skipped}`);
+
+  const exact = agreement(report.exact);
+  const approximate = agreement(report.approximate);
+  const parts: string[] = [];
+  if (exact !== null) parts.push(`exact ${exact.toFixed(1)}%`);
+  if (approximate !== null) parts.push(`approximate ${approximate.toFixed(1)}%`);
+  if (parts.length > 0) console.log(`\nagreement with what was served: ${parts.join(", ")}`);
+
+  const changed = report.cases.filter((c) => c.verdict === "changed" || c.verdict === "skipped");
+  if (changed.length > 0) {
+    console.log(`\nmoved:`);
+    for (const item of changed.slice(0, 20)) {
+      const label = item.query.length > 44 ? `${item.query.slice(0, 43)}…` : item.query;
+      const delta = item.verdict === "skipped"
+        ? `skipped (${item.reason ?? "unknown"})`
+        : `+${item.gained.length} -${item.lost.length}`;
+      console.log(`  ${item.traceId}  ${pad(item.kind, 12)}${pad(`"${label}"`, 46)}${delta}`);
+    }
+    if (changed.length > 20) console.log(`  … and ${changed.length - 20} more`);
+  }
+
+  if (report.assessed.total > 0) {
+    console.log(
+      `\nassessed at the time: ${report.assessed.total} ` +
+        `(useful ${report.assessed.useful}, wrong ${report.assessed.wrong}, missed ${report.assessed.missed})`,
+    );
+  }
+
+  console.log(
+    `\nReplay measures stability and coverage, not truth. A difference is not
+automatically a regression — an intentional retrieval improvement lands
+here as "changed" too. To check a change you are making, compare
+'dejavu eval --replay --json' before and after it.`,
+  );
+  if (report.approximate.replayed > 0) {
+    console.log(
+      `Orientation packets replay approximately: they are ordered by evidence
+counters, which have no history and cannot be restored.`,
+    );
+  }
 }
 
 function cmdForgetSession(args: string[]): void {
@@ -790,7 +885,7 @@ switch (cmd) {
     cmdAssess(rest);
     break;
   case "eval":
-    cmdEval();
+    cmdEval(rest);
     break;
   case "forget-session":
     cmdForgetSession(rest);
