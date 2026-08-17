@@ -370,7 +370,7 @@ export default function Page() {
       <footer className="ftr">
         <div className="wrap ftr__in">
           <span>
-            Dejavu — MIT licensed. Local SQLite is plaintext; keep secrets out.
+            Dejavu — © 2026 Sanjay Rohith, all rights reserved. Local SQLite is plaintext; keep secrets out.
           </span>
           <nav className="ftr__links">
             <a href={REPO} target="_blank" rel="noreferrer">

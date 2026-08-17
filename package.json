@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Repository-scoped memory and handoffs for coding agents.",
   "type": "module",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "author": "Sanjay Rohith",
   "homepage": "https://github.com/sanjayrohith/Dejavu",
   "repository": {

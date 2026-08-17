@@ -98,7 +98,7 @@ Each lap should pair copy with a **real terminal snippet** (actual CLI output st
 - Directly under it, the 60-second MCP config snippet (`mcpServers` JSON block) — this is the actual activation moment for the target user (an agent operator), so it should be one scroll away from the CTA, not buried in docs.
 
 ### 3.7 Footer
-- Minimal: GitHub link, license (MIT), links to `docs/ROADMAP.md` and `SECURITY.md` if useful. No newsletter form, no fake social proof, no logos row — none of that exists for this project and inventing it would misrepresent it.
+- Minimal: GitHub link, license (proprietary — see LICENSE.md; do not render it as MIT), links to `docs/ROADMAP.md` and `SECURITY.md` if useful. No newsletter form, no fake social proof, no logos row — none of that exists for this project and inventing it would misrepresent it.
 
 ## 4. Visual language
 

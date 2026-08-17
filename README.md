@@ -21,7 +21,7 @@ stored in one inspectable <strong>SQLite</strong> file.
 
 <br/>
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE.md)
 [![Runtime: Bun](https://img.shields.io/badge/runtime-Bun-black)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](tsconfig.json)
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](CHANGELOG.md)
@@ -739,7 +739,9 @@ The complete production/share roadmap, release gates, and next feature batch liv
 
 ## License
 
-[MIT](LICENSE) © Sanjay Rohith
+[Proprietary](LICENSE.md) © 2026 Sanjay Rohith. All rights reserved.
+
+<sub>Readable and reviewable, but not licensed for reuse. See [LICENSE.md](LICENSE.md); contributions are covered by [CONTRIBUTING.md](CONTRIBUTING.md).</sub>
 
 <br/>
 
