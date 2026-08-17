@@ -713,7 +713,7 @@ p {
    plate uncovered it just goes missing against a lit sky, so the hero takes the
    full text tone; the shadow on .hero__text is what separates it now. */
 .hero__sub {
-  margin-top: 24px;
+  margin: 24px auto 0;
   color: var(--text);
   font-size: 1.09rem;
   max-width: 52ch;
@@ -1187,6 +1187,20 @@ p {
   font-weight: 500;
 }
 
+.alert__link {
+  display: inline-block;
+  font-size: 12.6px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent-dim);
+  white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.alert__link:hover {
+  color: var(--cool);
+  border-color: var(--cool);
+}
+
 .note-line {
   margin-top: 34px;
   padding-left: 18px;
@@ -1418,6 +1432,15 @@ p {
 .term__body .c-good {
   color: var(--good);
 }
+.term__body .c-link {
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent-dim);
+  transition: color 0.2s, border-color 0.2s;
+}
+.term__body .c-link:hover {
+  color: var(--cool);
+  border-color: var(--cool);
+}
 
 /* ---------------- trust meter ---------------- */
 
@@ -1520,23 +1543,39 @@ p {
   transform: scaleY(1);
 }
 
-.bound__is {
+.bound__row {
+  display: flex;
+  align-items: baseline;
+  gap: 11px;
+}
+
+.bound__row--no {
+  margin-top: 8px;
+}
+
+.bound__mark {
   font-family: var(--font-mono), monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.bound__row--yes .bound__mark {
   color: var(--accent);
 }
 
+.bound__row--no .bound__mark {
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
 .bound__t {
-  margin-top: 9px;
   font-size: 15.4px;
   color: var(--text);
   font-weight: 500;
 }
 
 .bound__not {
-  margin-top: 7px;
   font-size: 13.4px;
   color: var(--text-faint);
 }
@@ -1554,6 +1593,7 @@ p {
   color: var(--text);
   font-weight: 500;
 }
+
 
 /* ---------------- shared preview ---------------- */
 

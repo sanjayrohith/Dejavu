@@ -43,6 +43,9 @@ export default function Header() {
           <a className="hide-sm" href="#install">
             Install
           </a>
+          <a className="hide-sm" href="#resources">
+            Docs &amp; license
+          </a>
           <a href={REPO} target="_blank" rel="noreferrer">
             GitHub ↗
           </a>

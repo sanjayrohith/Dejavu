@@ -11,9 +11,12 @@ import {
   BOUNDARIES,
   INSTALL_CMDS,
   LOSSES,
+  MANIFEST_COPY,
+  MANIFEST_HTML,
   MCP_CONFIG,
   MCP_TOOLS,
   REPO,
+  RESOURCE_NOTES,
   SHARED_PROVES,
 } from "@/lib/content";
 
@@ -186,9 +189,18 @@ export default function Page() {
               <Reveal className="bounds" stagger>
                 {BOUNDARIES.map((b) => (
                   <div className="bound" key={b.is}>
-                    <div className="bound__is">Is</div>
-                    <div className="bound__t">{b.is}</div>
-                    <div className="bound__not">{b.not}</div>
+                    <div className="bound__row bound__row--yes">
+                      <span className="bound__mark" aria-hidden="true">
+                        ✓
+                      </span>
+                      <span className="bound__t">{b.is}</span>
+                    </div>
+                    <div className="bound__row bound__row--no">
+                      <span className="bound__mark" aria-hidden="true">
+                        ✕
+                      </span>
+                      <span className="bound__not">{b.not}</span>
+                    </div>
                   </div>
                 ))}
               </Reveal>
@@ -363,6 +375,58 @@ export default function Page() {
             </div>
           </div>
         </section>
+
+        <SectionLink label="the manifest" />
+
+        {/* ---------------- license / docs / privacy ---------------- */}
+        <section className="section" id="resources">
+          <div className="wrap">
+            <div className="panel">
+              <Reveal className="panel__head">
+                <div>
+                  <p className="eyebrow">Before you rely on it</p>
+                  <h2>The manifest: license, docs, privacy.</h2>
+                </div>
+                <p className="lede">
+                  Same rule as the memory itself — read the record, don&rsquo;t
+                  take the summary on faith.
+                </p>
+              </Reveal>
+
+              <Reveal>
+                <Terminal
+                  title="dejavu manifest"
+                  copy={MANIFEST_COPY}
+                  html={MANIFEST_HTML}
+                />
+              </Reveal>
+
+              <Reveal className="alerts" stagger delay={110}>
+                {RESOURCE_NOTES.map((r) => (
+                  <div className="alert" key={r.id}>
+                    <span
+                      className="alert__idx mono"
+                      style={{ minWidth: 72, color: "var(--accent)" }}
+                    >
+                      {r.label}
+                    </span>
+                    <span className="alert__txt">
+                      {r.note}{" "}
+                      <a
+                        className="alert__link mono"
+                        href={r.href}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {r.linkLabel}
+                      </a>
+                    </span>
+                  </div>
+                ))}
+              </Reveal>
+            </div>
+          </div>
+        </section>
       </main>
 
       <Cue frame={CUE.end} />
@@ -370,7 +434,9 @@ export default function Page() {
       <footer className="ftr">
         <div className="wrap ftr__in">
           <span>
-            Dejavu — © 2026 Sanjay Rohith, all rights reserved. Local SQLite is plaintext; keep secrets out.
+            Dejavu — © 2026 Sanjay Rohith, all rights reserved. Proprietary,
+            source-available license. Local SQLite is plaintext; keep secrets
+            out.
           </span>
           <nav className="ftr__links">
             <a href={REPO} target="_blank" rel="noreferrer">
@@ -384,12 +450,20 @@ export default function Page() {
               Roadmap
             </a>
             <a
+              href={`${REPO}/blob/main/LICENSE.md`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              License
+            </a>
+            <a
               href={`${REPO}/blob/main/SECURITY.md`}
               target="_blank"
               rel="noreferrer"
             >
-              Security
+              Security &amp; privacy
             </a>
+            <a href="#resources">Docs</a>
           </nav>
         </div>
       </footer>

@@ -201,3 +201,53 @@ export const MCP_TOOLS = [
   ["link", "Relate two existing slips"],
   ["assess", "Evaluate a recall receipt"],
 ];
+
+/**
+ * README / LICENSE.md / SECURITY.md — the same "typed, inspectable record"
+ * idea the product itself uses (a slip, a receipt) applied to the legal and
+ * privacy surface: a manifest you read, not a policy you take on faith.
+ */
+const link = (label: string, href: string) =>
+  `<a class="c-link" href="${href}" target="_blank" rel="noreferrer">${label}</a>`;
+
+export const MANIFEST_HTML = [
+  '<span class="c-prompt">$</span> <span class="c-cmd">dejavu manifest --scope=license,docs,privacy</span>',
+  "",
+  `<span class="c-key">license </span> proprietary, source-available        ${link("LICENSE.md ↗", `${REPO}/blob/main/LICENSE.md`)}`,
+  `<span class="c-key">docs    </span> README, roadmap, changelog           ${link("browse docs ↗", `${REPO}#readme`)}`,
+  `<span class="c-key">privacy </span> local-only, zero telemetry           ${link("SECURITY.md ↗", `${REPO}/blob/main/SECURITY.md`)}`,
+  "",
+  '<span class="c-out">manifest: 3 records, 0 hidden clauses</span>',
+].join("\n");
+
+export const MANIFEST_COPY = `$ dejavu manifest --scope=license,docs,privacy
+
+license   proprietary, source-available        LICENSE.md
+docs      README, roadmap, changelog           browse docs
+privacy   local-only, zero telemetry           SECURITY.md
+
+manifest: 3 records, 0 hidden clauses`;
+
+export const RESOURCE_NOTES = [
+  {
+    id: "license",
+    label: "License",
+    note: "Read every line, but don't copy, redistribute, resell, or fork it into another project without written permission — Issues and PRs are welcome under Section 3.",
+    href: `${REPO}/blob/main/LICENSE.md`,
+    linkLabel: "LICENSE.md ↗",
+  },
+  {
+    id: "docs",
+    label: "Docs",
+    note: "The README carries install, the CLI, and the full agent API; the roadmap and changelog track what shipped versus what's next.",
+    href: `${REPO}#readme`,
+    linkLabel: "browse docs ↗",
+  },
+  {
+    id: "privacy",
+    label: "Privacy",
+    note: "No sign-up, no analytics, no background network calls — Dejavu writes plaintext SQLite to your disk and nowhere else. Not a vault: keep secrets out of it.",
+    href: `${REPO}/blob/main/SECURITY.md`,
+    linkLabel: "SECURITY.md ↗",
+  },
+] as const;
