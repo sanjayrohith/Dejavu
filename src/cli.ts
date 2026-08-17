@@ -23,6 +23,7 @@ import { dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { Dejavu, SharedDejavu, defaultDbPath, driftIsSuspect, rollupDrift } from "./index.ts";
 import { formatTouching } from "./format.ts";
+import { checkpoint, describePreserve, finish, orient, parseHarnessEvent } from "./harness.ts";
 import { currentSessionId } from "./lifecycle.ts";
 
 function usage(): never {
@@ -44,6 +45,9 @@ Usage:
   dejavu assess <trace> <useful|wrong|missed|no_memory_needed> [note]
   dejavu eval                  Show scoped recall-quality evidence
   dejavu forget-session <id> --yes  Expire a session's scoped slips
+  dejavu session start [--harness=claude-code]   Orient a new session (reads hook JSON on stdin)
+  dejavu session checkpoint    Preserve this session's work before compaction
+  dejavu session end           Preserve, then release the session claim
   dejavu ls [--session]        List kept slips (or current session's slips)
   dejavu show <id>             Show a slip + its links
   dejavu stats                 Print counts and DB path
@@ -333,6 +337,71 @@ function cmdForgetSession(args: string[]): void {
   d.close();
 }
 
+/**
+ * Session lifecycle, driven by a harness hook.
+ *
+ * The hook payload arrives as JSON on stdin. Every phase is written to be
+ * unfailing: a hook that exits non-zero or throws degrades the user's
+ * session, which is a far worse outcome than missing one memory packet.
+ * So the whole body is wrapped, and any error becomes a quiet note on
+ * stderr with a zero exit.
+ *
+ * Output shape differs per phase because harnesses consume them
+ * differently. `start` writes the memory packet to stdout, which Claude
+ * Code adds to the agent's context on a zero exit. `checkpoint` and `end`
+ * have no context channel, so they emit a JSON `systemMessage` for the
+ * human instead.
+ */
+async function cmdSession(args: string[]): Promise<void> {
+  const phase = args[0] as import("./harness.ts").HarnessPhase | undefined;
+  if (!phase || !["start", "checkpoint", "end"].includes(phase)) {
+    console.error("usage: dejavu session <start|checkpoint|end> [--harness=name] [--tokens=N]");
+    process.exit(1);
+  }
+  const rest = args.slice(1);
+  const harness = rest.find((a) => a.startsWith("--harness="))?.split("=")[1] || "unknown";
+  const maxTokens = Number(rest.find((a) => a.startsWith("--tokens="))?.split("=")[1] ?? 700);
+  const quiet = rest.includes("--quiet");
+
+  let d: Dejavu | null = null;
+  try {
+    const payload = rest.includes("--no-stdin") ? "" : await readStdin();
+    const event = parseHarnessEvent(payload, phase, harness);
+    // The harness knows the working directory better than we do; a hook
+    // may well run from somewhere else entirely.
+    if (event.cwd) process.chdir(event.cwd);
+
+    d = new Dejavu({ path: dbPath(), skipGc: phase === "start" ? false : true });
+
+    if (phase === "start") {
+      const result = orient(d, event, { maxTokens });
+      if (result.context) process.stdout.write(`${result.context}\n`);
+      return;
+    }
+
+    const result = phase === "checkpoint" ? checkpoint(d, event) : finish(d, event);
+    if (!quiet) {
+      console.log(JSON.stringify({ systemMessage: describePreserve(result, phase) }));
+    }
+  } catch (err) {
+    // Never fail a session over memory bookkeeping.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`dejavu session ${phase}: skipped (${message})`);
+  } finally {
+    d?.close();
+  }
+}
+
+/** Read a hook payload from stdin, tolerating a closed or empty pipe. */
+async function readStdin(): Promise<string> {
+  try {
+    if (process.stdin.isTTY) return "";
+    return await new Response(Bun.stdin.stream()).text();
+  } catch {
+    return "";
+  }
+}
+
 function cmdLs(args: string[]): void {
   const useSession = args.includes("--session");
   const d = new Dejavu({ path: dbPath(), skipGc: true });
@@ -604,6 +673,9 @@ switch (cmd) {
     break;
   case "forget-session":
     cmdForgetSession(rest);
+    break;
+  case "session":
+    await cmdSession(rest);
     break;
   case "ls":
     cmdLs(rest);
