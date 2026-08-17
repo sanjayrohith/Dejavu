@@ -377,6 +377,30 @@ dejavu anchors --drifted        # anchored memory whose code has since moved
 
 The check is local, deterministic, and never calls a model. It costs roughly **0.1 ms** at p95 on an eight-hit packet — 0.07–0.14 ms across runs (`bun run bench:anchors`) — and a database with no anchored memory pays one indexed query that returns nothing.
 
+### Memory the agent doesn't have to remember to use
+
+Dejavu's own [Loop 4](docs/loops/2026-04-25-loop-4-cross-session-chain.md) measured the failure this addresses: a writer agent did real work, was never told to remember it, so never did — and the next agent spent **22,911 tokens re-deriving the same fact**. Loop 4's conclusion was blunt: *"the chain only works when the writer plays its part."*
+
+Prose nudges were tried twice and ignored under task pressure, which produced the project's own design principle — **tool behaviour beats tool prose**. So the fix isn't asking the agent more nicely. It's letting the harness do it:
+
+```bash
+dejavu install claude-code        # or --global, --print, --uninstall
+```
+
+| Hook | What Dejavu does |
+|---|---|
+| `SessionStart` | Injects the bounded, cited memory packet — **also fires after compaction**, so the agent is re-oriented once its context is gone |
+| `PreCompact` | Keeps this session's drafts and rolls up a handoff before context is lost |
+| `SessionEnd` | Same, then releases the session claim |
+
+A session hook is not the agent: it can't forget, get distracted, or decide the task is already done.
+
+**Shared session identity.** Hooks, the MCP server, and your own shell are separate processes, and each used to invent its own session — so a hook literally could not see the agent's drafts. A harness now claims one session id per repository scope, recorded beside the database. `DEJAVU_SESSION` still wins, the claim expires after 24 h, and a missing or corrupt one falls back to the old per-process id. Side effect: `dejavu remember` typed in your terminal joins the same session as the agent.
+
+Two boundaries held deliberately: hooks **never read the transcript** (`transcript_path` is handed to us and ignored — transcript archiving as memory is a non-goal), and hooks **never call a model**. Everything is deterministic bookkeeping over what the agent already wrote; if it wrote nothing, nothing is invented. Cold-process cost is ~85 ms (`bun run bench:session`), against Claude Code's 1.5 s session-end budget.
+
+> This makes memory **structural rather than discretionary**. Whether it closes Loop 4's writer-side gap in real sessions is a hypothesis, not a result — it needs a Loop 5. See [`docs/bench/claims.md`](docs/bench/claims.md).
+
 ### A measurable feedback loop
 
 By default, each recall returns a content-free receipt id. After acting, an agent can assess the retrieval:
@@ -512,6 +536,9 @@ dejavu init
 dejavu verify
 dejavu stats
 
+dejavu install claude-code            # wire session hooks into Claude Code
+dejavu session start|checkpoint|end   # harness lifecycle (hooks call these)
+
 dejavu recall                         # scoped recents + active handoff
 dejavu recall "deployment decision" --tokens=700 --kind=decision,pitfall
 dejavu remember "Decision: deploy with Wrangler" --kind=decision --keep
@@ -613,6 +640,8 @@ Dejavu/
 │   ├── storage.ts          #   SQLite + FTS5 store
 │   ├── context.ts          #   repository scope derivation
 │   ├── anchors.ts          #   code anchors + drift detection
+│   ├── harness.ts          #   session lifecycle for agent harnesses
+│   ├── session.ts          #   cross-process session identity
 │   ├── lifecycle.ts        #   session id + trust helpers
 │   ├── format.ts           #   bounded recall/recents packets
 │   ├── next-agent.ts       #   experimental ranker (off by default)
@@ -649,6 +678,7 @@ bun test ./test
 bun run typecheck
 bun run bench/recall.ts
 bun run bench:anchors
+bun run bench:session
 bun run bench:behavior
 ```
 

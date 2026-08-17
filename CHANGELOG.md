@@ -6,6 +6,13 @@ All notable changes to Dejavu are documented here.
 
 ### Added
 
+- Harness session lifecycle: `dejavu session start|checkpoint|end`, driven by hook payloads on stdin.
+- `dejavu install claude-code` wires SessionStart, PreCompact, and SessionEnd into Claude Code settings, with `--global`, `--print`, and `--uninstall`.
+- Session identity shared across processes: a harness claims one session id per repository scope so hooks, the MCP server, and the CLI agree on which session they are writing to.
+- `DejavuOptions.sessionId` and the resolved `Dejavu.sessionId`.
+- Claimed session shown in `dejavu stats` and `dejavu verify`.
+- `bench/session.ts`, wired into `bun run check`, bounding cold-process hook latency against the harness exit budget.
+
 - Code anchors: `remember(text, { anchors: ["src/auth.ts:42#fn"] })` pins a memory to the code it describes, recording the file's git blob id at write time.
 - Anchor drift in recall: anchored hits report `verified`, `drifted`, `orphaned`, or `unknown` against the current working tree, so staleness is measured against the code rather than the clock.
 - `Dejavu.touching(paths)` and the `touching` MCP tool: reverse lookup that answers "what is known about the code I am about to change" without needing a query.
@@ -20,6 +27,10 @@ All notable changes to Dejavu are documented here.
 
 ### Safety
 
+- Session hooks never read `transcript_path`; transcript archiving as memory stays a non-goal.
+- Session hooks never call a model, so nothing is invented and nothing slow lands on the session exit path.
+- Session hook failures degrade to a stderr note and a zero exit, so a memory problem cannot break a session.
+- `dejavu install` refuses to overwrite unparseable settings and preserves hooks it did not write.
 - Anchors that resolve outside the repository root are rejected at write time, so memory cannot point a future reader at arbitrary files.
 - A failed anchor capture aborts the whole write rather than storing a memory that looks precise and is not.
 - Drift is a label only. It does not affect BM25 relevance, evidence trust, or hit order — that would be a retrieval change, and retrieval changes require an eval.

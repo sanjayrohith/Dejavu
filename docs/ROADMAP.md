@@ -145,10 +145,12 @@ No item in this batch ships merely because it sounds intelligent.
 
 ### Agent integration
 
-- [ ] Pi extension: automatic scoped orientation at session start.
-- [ ] Pi extension: checkpoint before compaction.
-- [ ] Pi extension: structured handoff at session end.
-- [ ] Harness adapters for Claude Code and OpenCode session identity.
+- [x] Harness-agnostic session lifecycle: orientation, checkpoint, and end.
+- [x] Claude Code adapter: SessionStart, PreCompact, SessionEnd, installed by command.
+- [x] Session identity shared across hook, MCP, and CLI processes.
+- [ ] Pi extension over the same lifecycle commands.
+- [ ] OpenCode adapter over the same lifecycle commands.
+- [ ] Re-run the loop 4 chain battery with hooks installed to test the writer-side gap.
 - [ ] Retry-safe write idempotency keys.
 - [ ] Prove integrations reduce repeated work rather than merely increasing calls.
 
@@ -276,6 +278,7 @@ These are deliberately below memory quality and security.
 | Default recall packet | bounded | <= 800 tokens p95 |
 | Warm local recall | effectively instant | < 20 ms p95 |
 | Anchor drift overhead | ~0.1 ms p95 (8 hits) | < 5 ms p95 |
+| Session hook latency | ~85 ms cold worst case | < 600 ms (40% of exit budget) |
 | Shared peer visibility | ~485 ms experiment | < 1 s p95 |
 | Shared deployment | blocked | all security gates complete |
 
