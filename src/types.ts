@@ -179,6 +179,19 @@ export interface RecallOptions {
   kinds?: MemoryKind[];
   /** Override the instance default for checking anchored slips for drift. */
   checkAnchorDrift?: boolean;
+  /**
+   * Retrieve as though it were this instant (ms since epoch).
+   *
+   * Memory written later is excluded, memory expired later is included,
+   * and supersession applies only if it had been recorded by then. This
+   * exists so `dejavu eval --replay` can re-run a recorded retrieval
+   * through the real pipeline instead of a reimplementation of it — it is
+   * not a general time-travel feature, and two things it cannot restore
+   * are evidence trust (the counters have no history) and the working
+   * tree. Setting it suppresses drift labelling and records no receipt,
+   * because a replay is not a retrieval that happened.
+   */
+  asOf?: number | null;
 }
 
 export interface RecallResult {
@@ -206,6 +219,8 @@ export interface OrientationOptions {
   branch?: string | null;
   /** Override the instance default for checking anchored slips for drift. */
   checkAnchorDrift?: boolean;
+  /** Compose as of this instant. See {@link RecallOptions.asOf}. */
+  asOf?: number | null;
 }
 
 /**

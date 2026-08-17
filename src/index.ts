@@ -235,6 +235,7 @@ export class Dejavu {
       : limitOrOptions;
     const limit = options.limit ?? 8;
     const sessionId = this.sessionId;
+    const asOf = options.asOf ?? null;
     const raw = query.trim()
       ? this.storage.searchFts(
           query,
@@ -242,13 +243,14 @@ export class Dejavu {
           this.scope,
           this.options.includeLegacy,
           options.kinds,
+          asOf,
         )
       : this.storage
-          .listKept(Math.max(limit, limit * 2), this.scope, this.options.includeLegacy, options.kinds)
+          .listKept(Math.max(limit, limit * 2), this.scope, this.options.includeLegacy, options.kinds, asOf)
           .map((slip) => ({ slip, score: 0 }));
     const seen = new Set<string>();
     const hits = raw.flatMap((candidate) => {
-      const slip = this.storage.activeSuperseder(candidate.slip.id, this.scope) ?? candidate.slip;
+      const slip = this.storage.activeSuperseder(candidate.slip.id, this.scope, asOf) ?? candidate.slip;
       if (seen.has(slip.id)) return [];
       seen.add(slip.id);
       return [{ slip, score: candidate.score, trust: trustForSlip(slip) }];
@@ -256,8 +258,8 @@ export class Dejavu {
     // Surface this session's active handoff if it exists, otherwise fall
     // back to the most recent active handoff in this repository scope.
     const activeHandoff =
-      this.storage.getActiveHandoffBySession(sessionId, this.scope) ??
-      this.storage.latestHandoffs(1, this.scope, this.options.includeLegacy)[0] ??
+      this.storage.getActiveHandoffBySession(sessionId, this.scope, asOf) ??
+      this.storage.latestHandoffs(1, this.scope, this.options.includeLegacy, asOf)[0] ??
       null;
     let result: RecallResult;
     if (this.options.experimentalNextAgentRanking) {
@@ -273,15 +275,17 @@ export class Dejavu {
     result.hits = fitRecallBudget(result.hits, options.maxTokens ?? 1200).slice(0, limit);
     // Drift is checked after budgeting so we only hash files for memory the
     // agent will actually see.
-    this.labelDrift(result.hits, options.checkAnchorDrift);
+    this.labelDrift(result.hits, options.checkAnchorDrift ?? (asOf === null ? undefined : false));
     result.readFirst = result.readFirst.filter((hit) =>
       result.hits.some((candidate) => candidate.slip.id === hit.slip.id)
     );
-    result.traceId = this.recordRecallTrace(
-      result.query,
-      result.hits.map((hit) => hit.slip.id),
-      result.activeHandoff?.id ?? null,
-    );
+    result.traceId = asOf === null
+      ? this.recordRecallTrace(
+          result.query,
+          result.hits.map((hit) => hit.slip.id),
+          result.activeHandoff?.id ?? null,
+        )
+      : null;
     return result;
   }
 
@@ -299,21 +303,27 @@ export class Dejavu {
    * file you are already editing is exactly the one most likely to be
    * stale.
    */
-  touching(paths: string[], opts: { limit?: number; checkAnchorDrift?: boolean } = {}): TouchingResult {
+  touching(
+    paths: string[],
+    opts: { limit?: number; checkAnchorDrift?: boolean; asOf?: number | null } = {},
+  ): TouchingResult {
     const limit = opts.limit ?? 20;
+    const asOf = opts.asOf ?? null;
     const normalized = this.normalizeAnchorPaths(paths);
-    const hits = this.anchoredHits(normalized, limit);
-    this.labelDrift(hits, opts.checkAnchorDrift);
+    const hits = this.anchoredHits(normalized, limit, asOf);
+    this.labelDrift(hits, opts.checkAnchorDrift ?? (asOf === null ? undefined : false));
 
     return {
       paths: normalized,
       // Reverse lookup is retrieval, so it leaves the same content-free
       // receipt and shows up in the same quality report.
-      traceId: this.recordRecallTrace(
-        `touching:${normalized.join(" ")}`,
-        hits.map((hit) => hit.slip.id),
-        null,
-      ),
+      traceId: asOf === null
+        ? this.recordRecallTrace(
+            `touching:${normalized.join(" ")}`,
+            hits.map((hit) => hit.slip.id),
+            null,
+          )
+        : null,
       hits,
     };
   }
@@ -329,13 +339,19 @@ export class Dejavu {
   }
 
   /** Non-expired slips anchored to `paths`, resolved to current truth. Undrifted. */
-  private anchoredHits(paths: string[], limit: number): NextAgentHit[] {
+  private anchoredHits(paths: string[], limit: number, asOf: number | null = null): NextAgentHit[] {
     if (paths.length === 0 || limit <= 0) return [];
-    const slips = this.storage.slipsAnchoredTo(paths, this.scope, this.options.includeLegacy, limit);
+    const slips = this.storage.slipsAnchoredTo(
+      paths,
+      this.scope,
+      this.options.includeLegacy,
+      limit,
+      asOf,
+    );
     const seen = new Set<string>();
     const hits: NextAgentHit[] = [];
     for (const candidate of slips) {
-      const slip = this.storage.activeSuperseder(candidate.id, this.scope) ?? candidate;
+      const slip = this.storage.activeSuperseder(candidate.id, this.scope, asOf) ?? candidate;
       if (seen.has(slip.id)) continue;
       seen.add(slip.id);
       hits.push({
@@ -372,17 +388,22 @@ export class Dejavu {
   orientation(opts: OrientationOptions = {}): OrientationPacket {
     const limit = opts.limit ?? 8;
     const maxTokens = opts.maxTokens ?? 700;
+    const asOf = opts.asOf ?? null;
 
     // The caller may already know the tree (a hook that read it, a test
-    // pinning a fixture). Otherwise read it, cheaply and forgivingly.
+    // pinning a fixture). Otherwise read it, cheaply and forgivingly —
+    // except when composing as of a past instant, where today's tree
+    // would be an answer to a question nobody asked.
     const tree = opts.paths !== undefined
       ? { branch: opts.branch ?? null, changed: opts.paths, truncated: false, unavailable: false }
-      : readWorktree(this.anchorRoot);
+      : asOf !== null
+        ? { branch: opts.branch ?? null, changed: [], truncated: false, unavailable: true }
+        : readWorktree(this.anchorRoot);
     const paths = this.normalizeAnchorPaths(tree.changed);
 
     const activeHandoff =
-      this.storage.getActiveHandoffBySession(this.sessionId, this.scope) ??
-      this.storage.latestHandoffs(1, this.scope, this.options.includeLegacy)[0] ??
+      this.storage.getActiveHandoffBySession(this.sessionId, this.scope, asOf) ??
+      this.storage.latestHandoffs(1, this.scope, this.options.includeLegacy, asOf)[0] ??
       null;
 
     const budget = new PacketBudget(maxTokens, limit);
@@ -396,8 +417,9 @@ export class Dejavu {
     // the space. That hashes a few files that may then be dropped; the
     // set is bounded by the diff, and getting this order right is the
     // whole point of the section.
-    const anchored = this.anchoredHits(paths, limit);
-    this.labelDrift(anchored, opts.checkAnchorDrift);
+    const anchored = this.anchoredHits(paths, limit, asOf);
+    const drift = opts.checkAnchorDrift ?? (asOf === null ? undefined : false);
+    this.labelDrift(anchored, drift);
     const hazards = budget.take([
       ...anchored.filter((hit) => driftIsSuspect(hit.drift)),
       ...anchored.filter((hit) => !driftIsSuspect(hit.drift)),
@@ -407,7 +429,7 @@ export class Dejavu {
     const section = (kinds: MemoryKind[]): NextAgentHit[] => {
       const taken = budget.take(
         this.storage
-          .listKeptByTrust(kinds, limit, this.scope, this.options.includeLegacy, [...claimed])
+          .listKeptByTrust(kinds, limit, this.scope, this.options.includeLegacy, [...claimed], asOf)
           .map((slip) => ({
             slip,
             score: 0,
@@ -430,14 +452,16 @@ export class Dejavu {
     // These sections come from kind and trust rather than from the diff,
     // but a decision embodied in a config file is anchored too, and a
     // fresh agent deserves to know its code moved.
-    this.labelDrift([...activeWork, ...mustKnow, ...other], opts.checkAnchorDrift);
+    this.labelDrift([...activeWork, ...mustKnow, ...other], drift);
 
     return {
-      traceId: this.recordRecallTrace(
-        `orientation:${tree.branch ?? "-"} ${paths.join(" ")}`.trim(),
-        [...hazards, ...activeWork, ...mustKnow, ...other].map((hit) => hit.slip.id),
-        activeHandoff?.id ?? null,
-      ),
+      traceId: asOf === null
+        ? this.recordRecallTrace(
+            `orientation:${tree.branch ?? "-"} ${paths.join(" ")}`.trim(),
+            [...hazards, ...activeWork, ...mustKnow, ...other].map((hit) => hit.slip.id),
+            activeHandoff?.id ?? null,
+          )
+        : null,
       branch: tree.branch,
       paths,
       worktreeUnavailable: tree.unavailable,
