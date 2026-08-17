@@ -40,6 +40,35 @@ code is always fine and doesn't require agreement to Section 3.
 5. **Be responsive to review feedback.** The Owner has final say on
    whether a contribution is merged.
 
+## Verifying a Change
+
+One command runs the whole release gate:
+
+```bash
+bun run check
+```
+
+That is the test suite, a strict TypeScript check, and four benchmarks
+that each fail the build rather than merely reporting a number:
+
+| Benchmark | Guards |
+|---|---|
+| `bench/recall.ts` | lexical recall@1 across the smoke corpus |
+| `bench:anchors` | anchor drift-check overhead inside the recall budget |
+| `bench:session` | cold-process session hook latency inside the harness exit budget |
+| `bench:behavior` | tool-wording proxy experiments |
+
+Two conventions worth knowing before you propose a change:
+
+- **Retrieval changes need evidence.** Anything that alters what recall
+  returns, or in what order, is expected to come with an eval rather than
+  an argument. `eval/next-agent/` is a retained negative result — a
+  ranker that sounded sensible and was rejected on measurement.
+- **Claims live in [`docs/bench/claims.md`](docs/bench/claims.md).** If a
+  change lets the project say something new, add the row and mark it
+  honestly. "Hypothesis" with a named next experiment is a perfectly good
+  state for a shipped feature to be in.
+
 ## What Happens After You Submit
 
 - The Owner will review your Issue or PR and may accept it, request

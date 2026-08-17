@@ -143,14 +143,20 @@ flowchart TB
         LC["lifecycle<br/>session id + trust"]
         FMT["format<br/>bounded packets"]
         ANC["anchors<br/>code drift detection"]
+        HAR["harness<br/>session lifecycle"]
+        SES["session<br/>cross-process identity"]
         NA["next-agent<br/>ranker (off by default)"]
     end
 
     STORE[("storage<br/>SQLite + FTS5<br/>slips · links · anchors · handoffs<br/>recall_traces · messages")]
     TREE[/"working tree<br/>git blob ids"/]
 
+    HOOKS[/"harness hooks<br/>start · compact · end"/] --> CLI
     CLI --> LIB
     MCP --> LIB
+    LIB --> HAR
+    HAR --> SES
+    SES --> STORE
     LIB --> CTX
     LIB --> LC
     LIB --> FMT
@@ -226,6 +232,14 @@ bun run src/cli.ts init
 ```
 
 The tool descriptions **are** the operating contract. Dejavu does not require a `SKILL.md`, `AGENTS.md`, or a memory paragraph copied into every system prompt.
+
+On Claude Code you can go one step further and stop relying on the agent remembering to call anything:
+
+```bash
+dejavu install claude-code
+```
+
+That wires orientation, checkpointing, and session close into hooks — see [Since v0.1.0](#since-v010). The manual pattern below still works, and remains the fallback for harnesses without hooks.
 
 <table>
 <tr>
@@ -333,6 +347,30 @@ d.resolveHandoff(h.id, "completed");
 
 Only active, repository-scoped handoffs appear in normal recall. Resolved or abandoned work no longer directs the next agent. An unresolved handoff older than three days is labeled **stale** and advisory, so an agent verifies it before acting.
 
+### A measurable feedback loop
+
+By default, each recall returns a content-free receipt id. After acting, an agent can assess the retrieval:
+
+```ts
+const result = d.recall("test runner");
+d.assessRecall(result.traceId, "useful");
+```
+
+| Assessment | Meaning |
+|---|---|
+| `useful` | The packet helped |
+| `wrong` | Surfaced context was misleading |
+| `missed` | Needed memory existed/should have existed but was absent |
+| `no_memory_needed` | Not a memory-shaped task |
+
+The trace stores query, scope, returned IDs, handoff ID, session, author, and timestamp — but **not** memory text or transcripts. Library callers handling sensitive queries may disable trace storage with `recordRecallTraces: false` (those calls return `traceId: null`). `dejavu eval` reports scoped evidence so retrieval changes can be evaluated against real use.
+
+<br/>
+
+## Since v0.1.0
+
+On `main`, not yet tagged. Both are additive: existing databases and unanchored memory behave exactly as before.
+
 ### Memory that knows when its code moved
 
 A memory's age tells you almost nothing about whether it is still true. What matters is whether the code it describes changed underneath it — and git already knows.
@@ -400,26 +438,6 @@ A session hook is not the agent: it can't forget, get distracted, or decide the 
 Two boundaries held deliberately: hooks **never read the transcript** (`transcript_path` is handed to us and ignored — transcript archiving as memory is a non-goal), and hooks **never call a model**. Everything is deterministic bookkeeping over what the agent already wrote; if it wrote nothing, nothing is invented. Cold-process cost is ~85 ms (`bun run bench:session`), against Claude Code's 1.5 s session-end budget.
 
 > This makes memory **structural rather than discretionary**. Whether it closes Loop 4's writer-side gap in real sessions is a hypothesis, not a result — it needs a Loop 5. See [`docs/bench/claims.md`](docs/bench/claims.md).
-
-### A measurable feedback loop
-
-By default, each recall returns a content-free receipt id. After acting, an agent can assess the retrieval:
-
-```ts
-const result = d.recall("test runner");
-d.assessRecall(result.traceId, "useful");
-```
-
-| Assessment | Meaning |
-|---|---|
-| `useful` | The packet helped |
-| `wrong` | Surfaced context was misleading |
-| `missed` | Needed memory existed/should have existed but was absent |
-| `no_memory_needed` | Not a memory-shaped task |
-
-The trace stores query, scope, returned IDs, handoff ID, session, author, and timestamp — but **not** memory text or transcripts. Library callers handling sensitive queries may disable trace storage with `recordRecallTraces: false` (those calls return `traceId: null`). `dejavu eval` reports scoped evidence so retrieval changes can be evaluated against real use.
-
-<br/>
 
 ## Agent API
 
@@ -587,10 +605,13 @@ Schema changes are additive and run automatically when Dejavu opens the database
 ```bash
 DEJAVU_DB=~/.dejavu/dejavu.db   # database path
 DEJAVU_AUTHOR=pi                # provenance identity
-DEJAVU_SESSION=<conversation>   # stable session supplied by the harness
+DEJAVU_SESSION=<conversation>   # stable session; wins over any harness claim
 DEJAVU_SCOPE=global             # deliberate override; normally automatic
 DEJAVU_INCLUDE_LEGACY=1         # temporary pre-v0.1 migration aid
+DEJAVU_COMMAND=<how to run me>  # command `dejavu install` embeds in hook config
 ```
+
+Session hooks also write `sessions.json` beside the database, recording which session id each repository scope is currently writing under. It holds no memory text, expires after 24 hours, and is safe to delete — losing it costs continuity, never data. Nothing creates it unless a harness claims a session.
 
 > **Local SQLite is plaintext.** Do not store credentials, customer data, or secrets. See [`SECURITY.md`](SECURITY.md) for the supported boundary and vulnerability-reporting guidance.
 

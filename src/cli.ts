@@ -2,17 +2,25 @@
 /**
  * dejavu CLI — local introspection + MCP launcher.
  *
- * Subcommands:
- *   dejavu init              Create the DB + print MCP wiring snippet
- *   dejavu mcp               Run the MCP server (stdio)
- *   dejavu verify            Check DB exists and is readable
- *   dejavu recall <query>    Search slips
- *   dejavu ls [--session]    List kept slips (or current session)
- *   dejavu show <id>         Show a slip + its links
- *   dejavu stats             Counts and DB path
- *   dejavu handoffs          List recent handoffs
+ * Subcommands, grouped by who runs them:
  *
- * The CLI is for humans poking at the DB. Agents use `dejavu mcp`.
+ *   Humans poking at the DB:
+ *     init / verify / stats / ls / show / handoffs
+ *     recall / remember / handoff / resolve / link / assess / eval
+ *     touching / anchors        Memory by file, and whether its code moved
+ *     forget-session            Scoped, confirmation-gated cleanup
+ *
+ *   Agent clients:
+ *     mcp                       MCP server over stdio
+ *
+ *   Harnesses, not people:
+ *     install <harness>         Wire session hooks into harness settings
+ *     session start|checkpoint|end
+ *                               Lifecycle phases; hook payload on stdin
+ *
+ * The `session` commands are the one part of the CLI written for a machine
+ * caller: they read JSON on stdin, and they never exit non-zero for a
+ * runtime problem, because a failing hook degrades somebody's session.
  *
  * dejavu deliberately does NOT write a SKILL.md. The MCP tool descriptions
  * are the spec the agent works from. Bullets in a markdown file are
