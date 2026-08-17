@@ -424,6 +424,57 @@ export class Storage {
     return rows.map(rowToSlip);
   }
 
+  /**
+   * Kept slips of the given kinds, strongest evidence first.
+   *
+   * `listKept` orders by `kept_at` alone, which is the right answer for
+   * "what happened recently" and the wrong one for "what should a fresh
+   * agent be told". Recency is especially misleading now that a session
+   * hook promotes a whole session's drafts at once: they all land on the
+   * same `kept_at`, so one busy session can fill an orientation packet
+   * with its own scratch notes and push out a preference that has been
+   * proving itself for a month.
+   *
+   * The ordering mirrors `trustForSlip` exactly — disputed memory last,
+   * repeatedly-useful memory first — so the packet and the trust label an
+   * agent reads next to it cannot disagree. Recency only breaks ties.
+   *
+   * `excludeIds` lets a caller compose several sections without repeating
+   * a slip that a stronger section already claimed.
+   */
+  listKeptByTrust(
+    kinds: MemoryKind[],
+    limit: number,
+    scope: string,
+    includeLegacy = false,
+    excludeIds: string[] = [],
+  ): Slip[] {
+    if (limit <= 0) return [];
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM slips
+         WHERE state = 'kept'
+           AND (scope = ? OR scope = 'global' OR (? AND scope = 'legacy:global'))
+           AND (? = '[]' OR kind IN (SELECT value FROM json_each(?)))
+           AND (? = '[]' OR id NOT IN (SELECT value FROM json_each(?)))
+         ORDER BY
+           CASE WHEN wrong_count > 0 THEN 2 WHEN used_count >= 2 THEN 0 ELSE 1 END ASC,
+           used_count DESC,
+           kept_at DESC
+         LIMIT ?`,
+      )
+      .all(
+        scope,
+        includeLegacy ? 1 : 0,
+        JSON.stringify(kinds),
+        JSON.stringify(kinds),
+        JSON.stringify(excludeIds),
+        JSON.stringify(excludeIds),
+        limit,
+      ) as SlipRow[];
+    return rows.map(rowToSlip);
+  }
+
   // ----- search -----
 
   /** FTS5 search over kept + draft slips (excludes expired). */

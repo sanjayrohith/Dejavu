@@ -218,3 +218,93 @@ describe("Storage", () => {
     s.close();
   });
 });
+
+describe("selecting kept memory by trust", () => {
+  /** Kept `kept_at` ms apart so recency ordering is unambiguous. */
+  function kept(overrides: Partial<Slip> = {}): Slip {
+    return makeSlip({ state: "kept", keptAt: Date.now(), ...overrides });
+  }
+
+  test("repeatedly-useful memory outranks memory kept a moment ago", () => {
+    const s = new Storage({ path: ":memory:" });
+    const proven = kept({ text: "the team uses bun", kind: "preference", usedCount: 4, keptAt: 1_000 });
+    const fresh = kept({ text: "scratch note from just now", kind: "preference", keptAt: 9_000 });
+    s.insertSlip(proven);
+    s.insertSlip(fresh);
+
+    const ordered = s.listKeptByTrust(["preference"], 10, "repo:test");
+    expect(ordered.map((slip) => slip.id)).toEqual([proven.id, fresh.id]);
+    s.close();
+  });
+
+  test("disputed memory sinks below everything else", () => {
+    const s = new Storage({ path: ":memory:" });
+    const disputed = kept({ text: "disputed claim", kind: "decision", usedCount: 9, wrongCount: 1, keptAt: 9_000 });
+    const plain = kept({ text: "ordinary decision", kind: "decision", keptAt: 1_000 });
+    s.insertSlip(disputed);
+    s.insertSlip(plain);
+
+    const ordered = s.listKeptByTrust(["decision"], 10, "repo:test");
+    expect(ordered.map((slip) => slip.id)).toEqual([plain.id, disputed.id]);
+    s.close();
+  });
+
+  test("recency only breaks ties between equally trusted memory", () => {
+    const s = new Storage({ path: ":memory:" });
+    const older = kept({ text: "older decision", kind: "decision", keptAt: 1_000 });
+    const newer = kept({ text: "newer decision", kind: "decision", keptAt: 9_000 });
+    s.insertSlip(older);
+    s.insertSlip(newer);
+
+    const ordered = s.listKeptByTrust(["decision"], 10, "repo:test");
+    expect(ordered.map((slip) => slip.id)).toEqual([newer.id, older.id]);
+    s.close();
+  });
+
+  test("filters by kind and skips drafts and expired memory", () => {
+    const s = new Storage({ path: ":memory:" });
+    const wanted = kept({ text: "a real pitfall", kind: "pitfall" });
+    s.insertSlip(wanted);
+    s.insertSlip(kept({ text: "a note", kind: "note" }));
+    s.insertSlip(makeSlip({ text: "an unkept pitfall", kind: "pitfall" }));
+    s.insertSlip(kept({ text: "an expired pitfall", kind: "pitfall", state: "expired" }));
+
+    const ordered = s.listKeptByTrust(["pitfall"], 10, "repo:test");
+    expect(ordered.map((slip) => slip.id)).toEqual([wanted.id]);
+    s.close();
+  });
+
+  test("excluded ids do not come back, so sections cannot repeat a slip", () => {
+    const s = new Storage({ path: ":memory:" });
+    const first = kept({ text: "first decision", kind: "decision", keptAt: 9_000 });
+    const second = kept({ text: "second decision", kind: "decision", keptAt: 1_000 });
+    s.insertSlip(first);
+    s.insertSlip(second);
+
+    const ordered = s.listKeptByTrust(["decision"], 10, "repo:test", false, [first.id]);
+    expect(ordered.map((slip) => slip.id)).toEqual([second.id]);
+    s.close();
+  });
+
+  test("respects repository scope and deliberate global memory", () => {
+    const s = new Storage({ path: ":memory:" });
+    const mine = kept({ text: "scoped decision", kind: "decision" });
+    const global = kept({ text: "global preference", kind: "decision", scope: "global" });
+    s.insertSlip(mine);
+    s.insertSlip(global);
+    s.insertSlip(kept({ text: "another repo's decision", kind: "decision", scope: "repo:elsewhere" }));
+
+    const ids = s.listKeptByTrust(["decision"], 10, "repo:test").map((slip) => slip.id);
+    expect(ids).toHaveLength(2);
+    expect(ids).toContain(mine.id);
+    expect(ids).toContain(global.id);
+    s.close();
+  });
+
+  test("a zero budget selects nothing rather than everything", () => {
+    const s = new Storage({ path: ":memory:" });
+    s.insertSlip(kept({ kind: "decision" }));
+    expect(s.listKeptByTrust(["decision"], 0, "repo:test")).toEqual([]);
+    s.close();
+  });
+});
