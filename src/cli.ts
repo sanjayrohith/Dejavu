@@ -35,6 +35,7 @@ import {
   unmergeHooks,
 } from "./harness.ts";
 import { currentSessionId } from "./lifecycle.ts";
+import { readSessionPointer } from "./session.ts";
 
 function usage(): never {
   console.log(`dejavu — local-first agent memory
@@ -167,8 +168,9 @@ function cmdVerify(): void {
   console.log(`slips: ${c.slips} (${c.kept} kept, ${c.drafts} draft)`);
   console.log(`handoffs: ${c.handoffs}`);
   console.log(`messages: ${c.messages} (${c.pending} pending)`);
+  const claimed = readSessionPointer(d.scope, { dbPath: path });
   d.close();
-  console.log(`session: ${currentSessionId()}`);
+  console.log(`session: ${claimed ? `${claimed.sessionId} (claimed by ${claimed.harness})` : currentSessionId()}`);
   if (!health.ok) process.exit(1);
 }
 
@@ -531,9 +533,11 @@ function cmdShow(args: string[]): void {
 function cmdStats(): void {
   const d = new Dejavu({ path: dbPath(), skipGc: true });
   const c = d.counts();
+  const claimed = readSessionPointer(d.scope, { dbPath: d.storage.path });
   console.log(`db:       ${d.storage.path}`);
   console.log(`scope:    ${d.scope} (${d.context.source})`);
   console.log(`root:     ${d.context.root}`);
+  console.log(`session:  ${d.sessionId}${claimed ? ` (claimed by ${claimed.harness})` : " (per-process)"}`);
   console.log(`slips:    ${c.slips}`);
   console.log(`  kept:   ${c.kept}`);
   console.log(`  drafts: ${c.drafts}`);
