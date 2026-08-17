@@ -163,6 +163,59 @@ CREATE TRIGGER IF NOT EXISTS slips_au AFTER UPDATE OF text, tags ON slips BEGIN
 END;
 `;
 
+/**
+ * Reconstructing what a query could see at a past instant.
+ *
+ * Slips are append-only: text is never edited, and a state transition only
+ * ever writes `kept_at` or `expired_at`. That makes the state at any past
+ * moment derivable from the row as it stands today — a slip was expired at
+ * T if it has an `expired_at` at or before T, kept at T if it has a
+ * `kept_at` at or before T, and a draft otherwise. Nothing has to be
+ * journalled for this to work; the immutability was already the design.
+ *
+ * That is what lets `dejavu eval --replay` re-run a recorded retrieval
+ * without crediting today's implementation for memory that did not exist
+ * when the retrieval actually happened.
+ *
+ * Two things are deliberately *not* reconstructible, and callers must not
+ * pretend otherwise: `used_count` and `wrong_count` are bare counters with
+ * no history, so evidence trust at time T is unknowable, and the working
+ * tree is whatever it is now. Retrieval that depends on either — anything
+ * ordered by trust, and anchor drift — replays approximately at best.
+ *
+ * Each fragment consumes three positional parameters, all the same value:
+ * pass {@link asOfParams}. A null `asOf` selects present-day behaviour
+ * exactly, so nothing changes for ordinary callers.
+ */
+function visibleAt(alias: string): string {
+  return `(CASE WHEN ? IS NULL THEN ${alias}.state != 'expired'
+    ELSE ${alias}.created_at <= ? AND (${alias}.expired_at IS NULL OR ${alias}.expired_at > ?) END)`;
+}
+
+/** As {@link visibleAt}, but for queries that only ever return kept memory. */
+function keptAt(alias: string): string {
+  return `(CASE WHEN ? IS NULL THEN ${alias}.state = 'kept'
+    ELSE ${alias}.kept_at IS NOT NULL AND ${alias}.kept_at <= ?
+         AND (${alias}.expired_at IS NULL OR ${alias}.expired_at > ?) END)`;
+}
+
+/**
+ * As {@link visibleAt}, for handoffs.
+ *
+ * A handoff was directing work at T if it had been written by then and had
+ * not yet been resolved — `resolved_at` makes that derivable the same way.
+ */
+function handoffActiveAt(alias: string): string {
+  return `(CASE WHEN ? IS NULL THEN ${alias}.status = 'active'
+    ELSE ${alias}.created_at <= ? AND (${alias}.resolved_at IS NULL OR ${alias}.resolved_at > ?) END)`;
+}
+
+/** The three identical bindings {@link visibleAt} and {@link keptAt} expect. */
+function asOfParams(asOf?: number | null): [number | null, number | null, number | null] {
+  const value = asOf ?? null;
+  return [value, value, value];
+}
+
 interface SlipRow {
   id: string;
   session_id: string;
@@ -408,19 +461,33 @@ export class Storage {
     return rows.map(rowToSlip);
   }
 
-  listKept(limit = 50, scope?: string, includeLegacy = false, kinds?: MemoryKind[]): Slip[] {
+  listKept(
+    limit = 50,
+    scope?: string,
+    includeLegacy = false,
+    kinds?: MemoryKind[],
+    asOf?: number | null,
+  ): Slip[] {
     const rows = scope
       ? this.db
           .prepare(
-            `SELECT * FROM slips
-             WHERE state = 'kept' AND (scope = ? OR scope = 'global' OR (? AND scope = 'legacy:global'))
-               AND (? = '[]' OR kind IN (SELECT value FROM json_each(?)))
-             ORDER BY kept_at DESC LIMIT ?`,
+            `SELECT * FROM slips s
+             WHERE ${keptAt("s")}
+               AND (s.scope = ? OR s.scope = 'global' OR (? AND s.scope = 'legacy:global'))
+               AND (? = '[]' OR s.kind IN (SELECT value FROM json_each(?)))
+             ORDER BY s.kept_at DESC LIMIT ?`,
           )
-          .all(scope, includeLegacy ? 1 : 0, JSON.stringify(kinds ?? []), JSON.stringify(kinds ?? []), limit) as SlipRow[]
+          .all(
+            ...asOfParams(asOf),
+            scope,
+            includeLegacy ? 1 : 0,
+            JSON.stringify(kinds ?? []),
+            JSON.stringify(kinds ?? []),
+            limit,
+          ) as SlipRow[]
       : this.db
-          .prepare(`SELECT * FROM slips WHERE state = 'kept' ORDER BY kept_at DESC LIMIT ?`)
-          .all(limit) as SlipRow[];
+          .prepare(`SELECT * FROM slips s WHERE ${keptAt("s")} ORDER BY s.kept_at DESC LIMIT ?`)
+          .all(...asOfParams(asOf), limit) as SlipRow[];
     return rows.map(rowToSlip);
   }
 
@@ -448,22 +515,24 @@ export class Storage {
     scope: string,
     includeLegacy = false,
     excludeIds: string[] = [],
+    asOf?: number | null,
   ): Slip[] {
     if (limit <= 0) return [];
     const rows = this.db
       .prepare(
-        `SELECT * FROM slips
-         WHERE state = 'kept'
-           AND (scope = ? OR scope = 'global' OR (? AND scope = 'legacy:global'))
-           AND (? = '[]' OR kind IN (SELECT value FROM json_each(?)))
-           AND (? = '[]' OR id NOT IN (SELECT value FROM json_each(?)))
+        `SELECT * FROM slips s
+         WHERE ${keptAt("s")}
+           AND (s.scope = ? OR s.scope = 'global' OR (? AND s.scope = 'legacy:global'))
+           AND (? = '[]' OR s.kind IN (SELECT value FROM json_each(?)))
+           AND (? = '[]' OR s.id NOT IN (SELECT value FROM json_each(?)))
          ORDER BY
-           CASE WHEN wrong_count > 0 THEN 2 WHEN used_count >= 2 THEN 0 ELSE 1 END ASC,
-           used_count DESC,
-           kept_at DESC
+           CASE WHEN s.wrong_count > 0 THEN 2 WHEN s.used_count >= 2 THEN 0 ELSE 1 END ASC,
+           s.used_count DESC,
+           s.kept_at DESC
          LIMIT ?`,
       )
       .all(
+        ...asOfParams(asOf),
         scope,
         includeLegacy ? 1 : 0,
         JSON.stringify(kinds),
@@ -484,6 +553,7 @@ export class Storage {
     scope?: string,
     includeLegacy = false,
     kinds?: MemoryKind[],
+    asOf?: number | null,
   ): Array<{ slip: Slip; score: number }> {
     // Tokenize on whitespace, strip non-word chars per token, drop empties.
     // Bare tokens let FTS5's porter tokenizer stem ("prefers" matches "preferred").
@@ -502,22 +572,30 @@ export class Storage {
              FROM slips_fts
              JOIN slips s ON s.rowid = slips_fts.rowid
              WHERE slips_fts MATCH ?
-               AND s.state != 'expired'
+               AND ${visibleAt("s")}
                AND (s.scope = ? OR s.scope = 'global' OR (? AND s.scope = 'legacy:global'))
                AND (? = '[]' OR s.kind IN (SELECT value FROM json_each(?)))
              ORDER BY score ASC
              LIMIT ?`,
           )
-          .all(sanitized, scope, includeLegacy ? 1 : 0, JSON.stringify(kinds ?? []), JSON.stringify(kinds ?? []), limit) as Array<SlipRow & { score: number }>
+          .all(
+            sanitized,
+            ...asOfParams(asOf),
+            scope,
+            includeLegacy ? 1 : 0,
+            JSON.stringify(kinds ?? []),
+            JSON.stringify(kinds ?? []),
+            limit,
+          ) as Array<SlipRow & { score: number }>
       : this.db
           .prepare(
             `SELECT s.*, bm25(slips_fts) AS score
              FROM slips_fts
              JOIN slips s ON s.rowid = slips_fts.rowid
-             WHERE slips_fts MATCH ? AND s.state != 'expired'
+             WHERE slips_fts MATCH ? AND ${visibleAt("s")}
              ORDER BY score ASC LIMIT ?`,
           )
-          .all(sanitized, limit) as Array<SlipRow & { score: number }>;
+          .all(sanitized, ...asOfParams(asOf), limit) as Array<SlipRow & { score: number }>;
 
     return rows.map((r) => ({
       slip: rowToSlip(r),
@@ -585,6 +663,7 @@ export class Storage {
     scope: string,
     includeLegacy = false,
     limit = 20,
+    asOf?: number | null,
   ): Slip[] {
     if (paths.length === 0) return [];
     const rows = this.db
@@ -592,12 +671,21 @@ export class Storage {
         `SELECT DISTINCT s.* FROM anchors a
          JOIN slips s ON s.id = a.slip_id
          WHERE a.path IN (SELECT value FROM json_each(?))
-           AND s.state != 'expired'
+           AND (? IS NULL OR a.created_at <= ?)
+           AND ${visibleAt("s")}
            AND (s.scope = ? OR s.scope = 'global' OR (? AND s.scope = 'legacy:global'))
          ORDER BY s.created_at DESC
          LIMIT ?`,
       )
-      .all(JSON.stringify(paths), scope, includeLegacy ? 1 : 0, limit) as SlipRow[];
+      .all(
+        JSON.stringify(paths),
+        asOf ?? null,
+        asOf ?? null,
+        ...asOfParams(asOf),
+        scope,
+        includeLegacy ? 1 : 0,
+        limit,
+      ) as SlipRow[];
     return rows.map(rowToSlip);
   }
 
@@ -635,14 +723,15 @@ export class Storage {
   }
 
   /** Return the newest non-expired memory that explicitly replaces `id`. */
-  activeSuperseder(id: string, scope: string): Slip | null {
+  activeSuperseder(id: string, scope: string, asOf?: number | null): Slip | null {
     const row = this.db.prepare(
       `SELECT s.* FROM links l
        JOIN slips s ON s.id = l.from_id
        WHERE l.to_id = ? AND l.kind = 'supersedes'
-         AND s.scope = ? AND s.state != 'expired'
+         AND (? IS NULL OR l.created_at <= ?)
+         AND s.scope = ? AND ${visibleAt("s")}
        ORDER BY s.created_at DESC LIMIT 1`,
-    ).get(id, scope) as SlipRow | null;
+    ).get(id, asOf ?? null, asOf ?? null, scope, ...asOfParams(asOf)) as SlipRow | null;
     return row ? rowToSlip(row) : null;
   }
 
@@ -702,25 +791,32 @@ export class Storage {
     return r ? rowToHandoff(r) : null;
   }
 
-  getActiveHandoffBySession(sessionId: string, scope: string): Handoff | null {
+  getActiveHandoffBySession(sessionId: string, scope: string, asOf?: number | null): Handoff | null {
     const row = this.db
-      .prepare(`SELECT * FROM handoffs WHERE session_id = ? AND scope = ? AND status = 'active'`)
-      .get(sessionId, scope) as HandoffRow | null;
+      .prepare(
+        `SELECT * FROM handoffs h
+         WHERE h.session_id = ? AND h.scope = ? AND ${handoffActiveAt("h")}`,
+      )
+      .get(sessionId, scope, ...asOfParams(asOf)) as HandoffRow | null;
     return row ? rowToHandoff(row) : null;
   }
 
-  latestHandoffs(limit = 5, scope?: string, includeLegacy = false): Handoff[] {
+  latestHandoffs(limit = 5, scope?: string, includeLegacy = false, asOf?: number | null): Handoff[] {
     const rows = scope
       ? this.db
           .prepare(
-            `SELECT * FROM handoffs
-             WHERE status = 'active' AND (scope = ? OR (? AND scope = 'legacy:global'))
-             ORDER BY created_at DESC LIMIT ?`,
+            `SELECT * FROM handoffs h
+             WHERE ${handoffActiveAt("h")} AND (h.scope = ? OR (? AND h.scope = 'legacy:global'))
+             ORDER BY h.created_at DESC LIMIT ?`,
           )
-          .all(scope, includeLegacy ? 1 : 0, limit) as HandoffRow[]
+          .all(...asOfParams(asOf), scope, includeLegacy ? 1 : 0, limit) as HandoffRow[]
       : this.db
-          .prepare(`SELECT * FROM handoffs ORDER BY created_at DESC LIMIT ?`)
-          .all(limit) as HandoffRow[];
+          .prepare(
+            `SELECT * FROM handoffs h
+             WHERE (? IS NULL OR h.created_at <= ?)
+             ORDER BY h.created_at DESC LIMIT ?`,
+          )
+          .all(asOf ?? null, asOf ?? null, limit) as HandoffRow[];
     return rows.map(rowToHandoff);
   }
 
