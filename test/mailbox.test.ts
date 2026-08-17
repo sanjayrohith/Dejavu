@@ -1,6 +1,25 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { memory } from "../src/index.ts";
 import { dispatch, newDispatchState } from "../src/mcp.ts";
+
+/**
+ * The mailbox derives "who am I" from DEJAVU_AUTHOR, so a test that
+ * replies to a message has to know what identity it is replying as.
+ * This file used to rely on another test file having set the variable
+ * first, which held only while the runner happened to order them that
+ * way — set it here instead.
+ */
+const AUTHOR = "mailbox-test-agent";
+const originalAuthor = process.env.DEJAVU_AUTHOR;
+
+beforeEach(() => {
+  process.env.DEJAVU_AUTHOR = AUTHOR;
+});
+
+afterEach(() => {
+  if (originalAuthor === undefined) delete process.env.DEJAVU_AUTHOR;
+  else process.env.DEJAVU_AUTHOR = originalAuthor;
+});
 
 describe("mailbox", () => {
   test("send, inbox, read, reply", () => {
@@ -26,7 +45,9 @@ describe("mailbox", () => {
     const id = inbox.text.match(/^[0-9A-Z]{26}/)![0];
     const reply = dispatch(d, state, "reply", { id, body: "pong" });
     expect(reply.text).toContain("replied");
-    expect(dispatch(d, state, "inbox", { to: "mcp-test-agent" }).text).toContain("pong");
+    // The reply is addressed back to whoever sent the original, which is
+    // this process's own identity.
+    expect(dispatch(d, state, "inbox", { to: AUTHOR }).text).toContain("pong");
     d.close();
   });
 });
