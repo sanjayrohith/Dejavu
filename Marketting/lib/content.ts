@@ -164,7 +164,7 @@ export const LAPS: Lap[] = [
     title: "A feedback loop you can actually measure",
     body: [
       "Each recall returns a content-free receipt id. After acting, an agent assesses it: useful, wrong, missed, or no_memory_needed. The trace stores the query, scope, returned ids, session and author — never a copy of the memory text or the transcript.",
-      "dejavu eval reports that scoped evidence, so a retrieval change can be judged against real use instead of a vibe.",
+      "Those receipts are also a corpus. Because memory is append-only, dejavu eval --replay re-runs every recorded retrieval as of the moment it was served — so a change to retrieval is quantified before it ships, and nothing has to be graded by hand first.",
     ],
     term: {
       title: "dejavu assess / eval",
@@ -175,6 +175,10 @@ export const LAPS: Lap[] = [
         '<span class="c-prompt">$</span> <span class="c-cmd">dejavu eval</span>',
         '<span class="c-out">scope:   repo:dejavu:9bea41ad8915</span>',
         '<span class="c-out">traces:  18   <span class="c-good">useful</span> 12  wrong 1  missed 3  n/a 2</span>',
+        "",
+        '<span class="c-prompt">$</span> <span class="c-cmd">dejavu eval --replay</span>',
+        '<span class="c-out">replayed 18 receipt(s) as of when each was served</span>',
+        '<span class="c-out">exact        16 <span class="c-good">identical</span>   1 reordered   1 changed</span>',
       ].join("\n"),
     },
   },
@@ -194,6 +198,7 @@ bunx github:sanjayrohith/Dejavu init`;
 
 export const MCP_TOOLS = [
   ["recall", "Scoped, budgeted retrieval plus the active handoff"],
+  ["touching", "Reverse lookup: what is known about the files you are about to change"],
   ["remember", "Draft or keep a typed memory; optionally supersede old slips"],
   ["handoff", "Leave one active continuation packet for the next session"],
   ["resolve_handoff", "Complete or abandon a handoff"],

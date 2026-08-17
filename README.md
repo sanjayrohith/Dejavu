@@ -146,6 +146,7 @@ flowchart TB
         HAR["harness<br/>session lifecycle"]
         SES["session<br/>cross-process identity"]
         WT["worktree<br/>branch + changed files"]
+        RPL["replay<br/>re-runs recorded receipts"]
         NA["next-agent<br/>ranker (off by default)"]
     end
 
@@ -168,6 +169,8 @@ flowchart TB
     CTX --> STORE
     ANC --> TREE
     WT --> TREE
+    CLI --> RPL
+    RPL -->|"as of when each was served"| LIB
 ```
 
 > **Repository isolation is the foundation.** The `context` module derives a stable scope from the nearest Git repository and its normalized `origin`, so two checkouts of the same repo share memory while unrelated projects stay isolated.

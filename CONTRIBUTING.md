@@ -58,12 +58,35 @@ that each fail the build rather than merely reporting a number:
 | `bench:session` | cold-process session hook latency inside the harness exit budget |
 | `bench:behavior` | tool-wording proxy experiments |
 
+`bench:session` carries its own `--no-worktree` control arm, so the cost
+of a change to session startup is measured against itself on your
+machine rather than against a number recorded on somebody else's.
+
 Two conventions worth knowing before you propose a change:
 
 - **Retrieval changes need evidence.** Anything that alters what recall
   returns, or in what order, is expected to come with an eval rather than
   an argument. `eval/next-agent/` is a retained negative result — a
   ranker that sounded sensible and was rejected on measurement.
+
+  There is now a tool for this. Capture what today's retrieval does,
+  make your change, and capture it again:
+
+  ```bash
+  dejavu eval --replay --json > before.json
+  #   ...change retrieval...
+  dejavu eval --replay --json > after.json
+  diff before.json after.json
+  ```
+
+  That re-runs every retrieval recorded in your own database, as of the
+  moment each one was served, so memory written since your receipts
+  can't be mistaken for an improvement. Paste the diff into the PR. Note
+  what it is *not*: a difference is not automatically a regression — an
+  intentional improvement shows up in the same `changed` column, and
+  that is a fine thing to argue for as long as the number is on the
+  table.
+
 - **Claims live in [`docs/bench/claims.md`](docs/bench/claims.md).** If a
   change lets the project say something new, add the row and mark it
   honestly. "Hypothesis" with a named next experiment is a perfectly good
