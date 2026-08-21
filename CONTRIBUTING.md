@@ -48,6 +48,11 @@ One command runs the whole release gate:
 bun run check
 ```
 
+`.github/workflows/ci.yml` runs the same command on every push and pull
+request against `main`, plus the `shared-server` unit tests `bun run
+check` doesn't cover on its own — run it locally first so a red PR isn't
+the first you hear of a regression.
+
 That is the test suite, a strict TypeScript check, and four benchmarks
 that each fail the build rather than merely reporting a number:
 
