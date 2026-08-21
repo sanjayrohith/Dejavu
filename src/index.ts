@@ -39,9 +39,11 @@ import {
   rollupDrift,
 } from "./anchors.ts";
 import { readWorktree } from "./worktree.ts";
+import { findNearDuplicate } from "./duplicates.ts";
 import type {
   Anchor,
   AnchorState,
+  DuplicateSuggestion,
   MemoryKind,
   OrientationOptions,
   OrientationPacket,
@@ -98,6 +100,7 @@ export type {
   AnchorSpec,
   AnchorState,
   AnchorStatus,
+  DuplicateSuggestion,
   OrientationOptions,
   OrientationPacket,
   TouchingResult,
@@ -326,6 +329,26 @@ export class Dejavu {
         : null,
       hits,
     };
+  }
+
+  /**
+   * Does `text` already look like something kept? Advisory only — nothing
+   * here blocks or alters a write. It tells the caller whether a
+   * `supersedes` link might be worth making instead of leaving two
+   * unlinked slips to compete on BM25 score forever.
+   *
+   * Reuses the exact scope/legacy rules `recall()` already applies, so
+   * repository isolation is inherited rather than re-implemented. Only
+   * kept memory is compared against — a same-session draft is still the
+   * same thinking in progress, not "already known."
+   */
+  findDuplicate(text: string, opts: { limit?: number } = {}): DuplicateSuggestion | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    const candidates = this.storage
+      .searchFts(trimmed, opts.limit ?? 5, this.scope, this.options.includeLegacy)
+      .filter((candidate) => candidate.slip.state === "kept");
+    return findNearDuplicate(candidates, trimmed);
   }
 
   /** Repository-relative, de-duplicated; anything outside the root is dropped. */
