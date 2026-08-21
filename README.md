@@ -696,6 +696,7 @@ The local MCP server exposes two small groups.
 ```bash
 dejavu init
 dejavu verify
+dejavu doctor [--json]                 # redacted diagnostic bundle — safe to paste into a bug report
 dejavu stats
 
 dejavu install claude-code            # wire session hooks into Claude Code
