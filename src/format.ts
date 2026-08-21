@@ -2,6 +2,7 @@ import { driftIsSuspect } from "./anchors.ts";
 import type {
   AnchorState,
   AnchorStatus,
+  DuplicateSuggestion,
   Handoff,
   Link,
   OrientationPacket,
@@ -311,6 +312,24 @@ function formatAnchoredHit(hit: RecallHit, links?: RecallLinkProvider): string {
     `  ${hit.slip.text.replace(/\n/g, "\n  ")}\n` +
     `  ${formatProvenance(hit.slip)}${formatLinkSafety(hit.slip.id, links)}${formatAnchors(hit.anchors)}`
   );
+}
+
+/**
+ * The one-line fact behind a write-time duplicate suggestion: which slip,
+ * how much overlap, and a snippet of what it already says.
+ *
+ * Deliberately just the fact. The call to action ("link it with...")
+ * differs by surface — a shell command for the CLI, a tool argument for
+ * MCP — so each caller appends its own, the same split `formatHit` keeps
+ * between presenting a slip and any next-agent hint beside it.
+ */
+export function formatDuplicateSuggestion(suggestion: DuplicateSuggestion): string {
+  const pct = Math.round(suggestion.overlap * 100);
+  const snippet = suggestion.slip.text.length > 100
+    ? `${suggestion.slip.text.slice(0, 99)}…`
+    : suggestion.slip.text;
+  const verb = suggestion.kind === "duplicate" ? "possible duplicate of" : "overlaps existing memory";
+  return `${verb} ${suggestion.slip.id} (${pct}% overlap) — kept "${snippet}"`;
 }
 
 function formatLinkSafety(id: string, links?: RecallLinkProvider): string {

@@ -32,7 +32,7 @@ import { dirname, join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { Dejavu, SharedDejavu, defaultDbPath, driftIsSuspect, rollupDrift } from "./index.ts";
-import { formatOrientation, formatTouching } from "./format.ts";
+import { formatDuplicateSuggestion, formatOrientation, formatTouching } from "./format.ts";
 import {
   checkpoint,
   claudeCodeHooks,
@@ -232,11 +232,17 @@ function cmdRemember(args: string[]): void {
   if (!text) throw new Error("usage: dejavu remember <text> [--keep] [--kind=decision] [--anchor=path:line#symbol]");
   const d = new Dejavu({ path: dbPath(), skipGc: true });
   try {
+    // Checked before the write, so the new slip can never match itself.
+    const duplicate = d.findDuplicate(text);
     const slip = d.remember(text, { kind: kindArg, anchors });
     if (keep) d.keep([slip.id]);
     console.log(`${keep ? "kept" : "drafted"} ${slip.kind} ${slip.id} in ${slip.scope}`);
     for (const anchor of d.anchorsFor(slip.id)) {
       console.log(`  anchored to ${anchor.path}@${anchor.blobSha.slice(0, 8)}`);
+    }
+    if (duplicate) {
+      console.log(`  ${formatDuplicateSuggestion(duplicate)}`);
+      console.log(`  link it: dejavu link ${slip.id} supersedes ${duplicate.slip.id}`);
     }
   } finally {
     d.close();
