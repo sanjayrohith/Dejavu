@@ -6,6 +6,10 @@ All notable changes to Dejavu are documented here.
 
 ### Added
 
+- `dejavu doctor [--json]`: a redacted diagnostic bundle, built to be pasted into a bug report. A superset of `dejavu verify` — database health, file size, and runtime info, plus a per-scope breakdown across every repository this database has ever seen memory from (not just the caller's current one), current-scope anchor drift tally, and session-pointer state. Structurally redacted: only counts, enums, ids, and scope strings are ever read into the report, so there is no memory text to strip out.
+- `Storage.scopeCounts()`: per-scope slip/handoff/anchored-slip counts across the whole database. `counts()` stays deliberately unscoped.
+- `src/doctor.ts` and the `DoctorReport` type.
+
 - Write-time duplicate detection: `remember()`, `dejavu remember`, and the MCP `remember` tool now check new text against already-kept memory and name it when the text looks like a near-duplicate or strongly overlaps an existing kept slip, suggesting a `supersedes` link instead of leaving two unlinked copies. Advisory only — the write happens either way, and nothing is linked automatically.
 - `Dejavu.findDuplicate(text)` and the `DuplicateSuggestion` type.
 - `src/duplicates.ts`: token-Jaccard overlap scoring against a small local stopword list, pure and DB-free.
@@ -46,6 +50,7 @@ All notable changes to Dejavu are documented here.
 
 ### Safety
 
+- `dejavu doctor` is redacted by construction, not by filtering: it only ever reads counts, enums, ids, and scope strings out of storage, so no slip, handoff, or anchor text or tags can appear in its output — asserted directly by a test that plants distinctive text and checks it never survives serialization.
 - Duplicate suggestions are advisory only: finding one never blocks or alters the write it was computed for, and nothing is linked automatically — the caller decides.
 - A replayed retrieval records no receipt, so replay cannot grow the corpus it is measuring.
 - A replayed retrieval does not check anchor drift, because the working tree at a past instant is not recoverable, and orientation does not read today's tree when composing as of a past instant.
