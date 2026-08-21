@@ -1,5 +1,5 @@
 {
-  "name": "dejavu",
+  "name": "@sanjayrohith/dejavu",
   "version": "0.1.0",
   "description": "Repository-scoped memory and handoffs for coding agents.",
   "type": "module",
@@ -9,6 +9,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/sanjayrohith/Dejavu"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -33,7 +36,7 @@
     "docs/shared-memory.md",
     "docs/shared-memory-implementation-contract.md",
     "docs/shared-security-review.md",
-    "LICENSE"
+    "LICENSE.md"
   ],
   "scripts": {
     "test": "bun test ./test",

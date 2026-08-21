@@ -39,4 +39,4 @@ jobs:
         run: |
           mkdir -p /tmp/dejavu-pack
           bun pm pack --destination /tmp/dejavu-pack
-          test -f /tmp/dejavu-pack/dejavu-0.1.0.tgz
+          test -f /tmp/dejavu-pack/sanjayrohith-dejavu-0.1.0.tgz
