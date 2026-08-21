@@ -559,6 +559,27 @@ A replayed retrieval records no receipt and never leaves this repository's scope
 
 </details>
 
+### Duplicate memory, caught before it's written
+
+A slip is written once and never edited, so nothing used to stop an agent from writing "always deploy with wrangler" in five different sessions — each one left to compete on BM25 score with the others instead of replacing anything.
+
+`remember()` now checks new text against already-kept memory first, and — CLI or MCP alike — names the closest match when one clears a topical-overlap threshold:
+
+```text
+drafted decision 01M0HCD6BK8APQR11YN1TVWRCA in repo:smoke
+  overlaps existing memory 01M0HCD69TG0G9CM8CXS2KM1K1 (67% overlap) — kept "always deploy with wrangler"
+  link it: dejavu link 01M0HCD6BK8APQR11YN1TVWRCA supersedes 01M0HCD69TG0G9CM8CXS2KM1K1
+```
+
+| Verdict | Meaning |
+|---|---|
+| `duplicate` | Near-identical text — almost certainly the same slip again |
+| `related` | Strong topical overlap — worth a deliberate `supersedes` link |
+
+Nothing here blocks the write or links anything automatically. It's a suggestion the caller can act on, ignore, or resolve in the same breath — `remember(text, { supersedes: [...] })` over MCP, or `dejavu link <new> supersedes <old>` afterward from the CLI.
+
+> Token-Jaccard overlap over a small local stopword list — lexical and deterministic, same as everything else on the write and recall path. No model call, and only kept memory is compared against, so a session's own in-progress drafts never trigger a suggestion against themselves.
+
 ## Agent API
 
 ```ts
@@ -596,6 +617,7 @@ d.handoff({
 
 ```ts
 d.remember(text, options?)          // options.anchors pins it to code
+d.findDuplicate(text)               // does this already look like something kept?
 d.keep(ids)
 d.recall(query, { limit?, maxTokens?, kinds? })
 d.orientation({ maxTokens?, limit? })  // the packet a session should open with
