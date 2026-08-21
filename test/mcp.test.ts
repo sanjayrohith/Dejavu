@@ -152,6 +152,45 @@ describe("MCP dispatch — prior-handoff nudge on remember/handoff", () => {
   });
 });
 
+describe("MCP dispatch — duplicate suggestions on remember", () => {
+  test("overlapping text names the existing slip and suggests supersedes", () => {
+    const d = memory();
+    const state = newDispatchState();
+    const original = d.remember("always deploy with wrangler, never the dashboard");
+    d.keep([original.id], { noChainRollup: true });
+
+    const r = dispatch(d, state, "remember", {
+      text: "we always deploy with wrangler, never the dashboard",
+    });
+    expect(r.text).toContain(original.id);
+    expect(r.text).toContain("overlap");
+    expect(r.text).toContain(`supersedes: ["${original.id}"]`);
+    d.close();
+  });
+
+  test("unrelated text carries no duplicate note", () => {
+    const d = memory();
+    const state = newDispatchState();
+    d.keep([d.remember("the database uses SQLite").id], { noChainRollup: true });
+
+    const r = dispatch(d, state, "remember", { text: "coffee tastes better cold" });
+    expect(r.text).not.toContain("overlap");
+    d.close();
+  });
+
+  test("the write still happens even with a duplicate suggestion", () => {
+    const d = memory();
+    const state = newDispatchState();
+    d.keep([d.remember("always deploy with wrangler").id], { noChainRollup: true });
+
+    const r = dispatch(d, state, "remember", { text: "always deploy with wrangler" });
+    expect(r.text).toContain("drafted slip");
+    const newId = r.text.match(/slip (\w+)/)?.[1];
+    expect(newId ? d.get(newId) : null).not.toBeNull();
+    d.close();
+  });
+});
+
 describe("MCP dispatch — memory quality tools", () => {
   test("remember accepts kind and supersedes links", () => {
     const d = memory();

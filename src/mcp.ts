@@ -28,7 +28,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { Dejavu, defaultDbPath } from "./index.ts";
-import { formatOrientation, formatRecall, formatRecents, formatTouching } from "./format.ts";
+import { formatDuplicateSuggestion, formatOrientation, formatRecall, formatRecents, formatTouching } from "./format.ts";
 import { VERSION } from "./version.ts";
 
 /**
@@ -116,6 +116,8 @@ export function dispatch(
           ...supersedes.map((toId) => ({ toId, kind: "supersedes" as const })),
           ...contradicts.map((toId) => ({ toId, kind: "contradicts" as const })),
         ];
+        // Checked before the write, so the new slip can never match itself.
+        const duplicate = dejavu.findDuplicate(text);
         const slip = dejavu.remember(text, { tags, kind, links, anchors });
 
         let rolledUpHandoff: string | null = null;
@@ -140,7 +142,10 @@ export function dispatch(
         const trailer = rolledUpHandoff
           ? ` — auto-rolled into session handoff ${rolledUpHandoff}; visible to next agent on any recall`
           : "";
-        return { text: base + anchorNote + trailer + priorHandoffNudge(dejavu, state) };
+        const duplicateNote = duplicate
+          ? `\n\n# ${formatDuplicateSuggestion(duplicate)}\nIf this replaces it, call remember again with supersedes: ["${duplicate.slip.id}"]. If it's genuinely separate, no action needed.`
+          : "";
+        return { text: base + anchorNote + trailer + duplicateNote + priorHandoffNudge(dejavu, state) };
       }
       case "handoff": {
         const summary = String(args.summary ?? "");
@@ -302,7 +307,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "remember",
       description:
-        "Jot a memory. Default state is 'draft' (auto-expires in 24h). Pass keep=true to promote immediately. Tags are optional, free-form.",
+        "Jot a memory. Default state is 'draft' (auto-expires in 24h). Pass keep=true to promote immediately. Tags are optional, free-form. If the text closely overlaps something already kept, the response names it and suggests linking a supersession instead of leaving two unlinked copies — this never blocks the write.",
       inputSchema: {
         type: "object",
         properties: {
