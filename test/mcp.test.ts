@@ -178,6 +178,52 @@ describe("MCP dispatch — duplicate suggestions on remember", () => {
     d.close();
   });
 
+  test("no note when the caller already passed supersedes for that slip", () => {
+    const d = memory();
+    const state = newDispatchState();
+    const original = d.remember("always deploy with wrangler, never the dashboard");
+    d.keep([original.id], { noChainRollup: true });
+
+    const r = dispatch(d, state, "remember", {
+      text: "we always deploy with wrangler, never the dashboard",
+      supersedes: [original.id],
+    });
+    expect(r.text).not.toContain("overlap");
+    expect(d.storage.linksFrom(r.text.match(/slip (\w+)/)![1]!)[0]?.toId).toBe(original.id);
+    d.close();
+  });
+
+  test("no note when the caller already passed contradicts for that slip", () => {
+    const d = memory();
+    const state = newDispatchState();
+    const original = d.remember("always deploy with wrangler, never the dashboard");
+    d.keep([original.id], { noChainRollup: true });
+
+    const r = dispatch(d, state, "remember", {
+      text: "we always deploy with wrangler, never the dashboard",
+      contradicts: [original.id],
+    });
+    expect(r.text).not.toContain("overlap");
+    d.close();
+  });
+
+  test("a suggestion for a *different* slip still shows even with supersedes set", () => {
+    const d = memory();
+    const state = newDispatchState();
+    const unrelated = d.remember("use pnpm for this repo");
+    d.keep([unrelated.id], { noChainRollup: true });
+    const original = d.remember("always deploy with wrangler, never the dashboard");
+    d.keep([original.id], { noChainRollup: true });
+
+    const r = dispatch(d, state, "remember", {
+      text: "we always deploy with wrangler, never the dashboard",
+      supersedes: [unrelated.id],
+    });
+    expect(r.text).toContain(original.id);
+    expect(r.text).toContain("overlap");
+    d.close();
+  });
+
   test("the write still happens even with a duplicate suggestion", () => {
     const d = memory();
     const state = newDispatchState();

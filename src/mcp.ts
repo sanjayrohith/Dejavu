@@ -142,7 +142,13 @@ export function dispatch(
         const trailer = rolledUpHandoff
           ? ` — auto-rolled into session handoff ${rolledUpHandoff}; visible to next agent on any recall`
           : "";
-        const duplicateNote = duplicate
+        // A caller that already named this exact slip in supersedes or
+        // contradicts has already made the deliberate call — repeating
+        // the suggestion back would just be noise.
+        const alreadyLinked = duplicate
+          ? supersedes.includes(duplicate.slip.id) || contradicts.includes(duplicate.slip.id)
+          : false;
+        const duplicateNote = duplicate && !alreadyLinked
           ? `\n\n# ${formatDuplicateSuggestion(duplicate)}\nIf this replaces it, call remember again with supersedes: ["${duplicate.slip.id}"]. If it's genuinely separate, no action needed.`
           : "";
         return { text: base + anchorNote + trailer + duplicateNote + priorHandoffNudge(dejavu, state) };
