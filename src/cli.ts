@@ -32,7 +32,8 @@ import { dirname, join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { Dejavu, SharedDejavu, defaultDbPath, driftIsSuspect, rollupDrift } from "./index.ts";
-import { formatDuplicateSuggestion, formatOrientation, formatTouching } from "./format.ts";
+import { formatDoctorReport, formatDuplicateSuggestion, formatOrientation, formatTouching } from "./format.ts";
+import { buildDoctorReport } from "./doctor.ts";
 import {
   checkpoint,
   claudeCodeHooks,
@@ -56,6 +57,8 @@ Usage:
   dejavu init                  Create the DB + print MCP wiring snippet
   dejavu mcp                   Run the MCP server (stdio — for agent clients)
   dejavu verify                Check schema, SQLite integrity, and FTS coverage
+  dejavu doctor [--json]       Redacted diagnostic bundle: db health, every
+                               scope's counts, current-scope anchors, session
   dejavu recall [query] [--tokens=N] [--kind=decision,pitfall]
   dejavu remember <text> [--keep] [--kind=decision] [--anchor=src/a.ts:42#fn]
   dejavu orient [--tokens=N] [--limit=N]
@@ -188,6 +191,29 @@ function cmdVerify(): void {
   d.close();
   console.log(`session: ${claimed ? `${claimed.sessionId} (claimed by ${claimed.harness})` : currentSessionId()}`);
   if (!health.ok) process.exit(1);
+}
+
+/**
+ * A superset of `dejavu verify`, built to be pasted into a bug report:
+ * db health, every repository scope this database has memory from (not
+ * just the current one), current-scope anchor drift, session-pointer
+ * state, and runtime info. Redacted by construction — see
+ * `src/doctor.ts` — so there is nothing here for a maintainer fielding
+ * an issue to have to ask the reporter to strip out.
+ */
+function cmdDoctor(args: string[]): void {
+  const path = dbPath();
+  if (!existsSync(path)) {
+    console.error(`db: ${path} MISSING`);
+    process.exit(1);
+  }
+  const d = new Dejavu({ path, skipGc: true });
+  try {
+    const report = buildDoctorReport(d);
+    console.log(args.includes("--json") ? JSON.stringify(report, null, 2) : formatDoctorReport(report));
+  } finally {
+    d.close();
+  }
 }
 
 function cmdRecall(args: string[]): void {
@@ -862,6 +888,9 @@ switch (cmd) {
     break;
   case "verify":
     cmdVerify();
+    break;
+  case "doctor":
+    cmdDoctor(rest);
     break;
   case "recall":
     cmdRecall(rest);

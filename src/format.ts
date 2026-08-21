@@ -1,4 +1,5 @@
 import { driftIsSuspect } from "./anchors.ts";
+import type { DoctorReport } from "./doctor.ts";
 import type {
   AnchorState,
   AnchorStatus,
@@ -344,4 +345,68 @@ function formatLinkSafety(id: string, links?: RecallLinkProvider): string {
     if (link.kind === "contradicts") linkNotes.push(`contradicted by ${link.fromId}`);
   }
   return linkNotes.length > 0 ? `\n  links: ${linkNotes.join("; ")}` : "";
+}
+
+/** Adaptive byte formatting — a freshly-created database is a few KB, not "0.00 MB". */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+/**
+ * Render a `dejavu doctor` report for a person, not an agent — this is a
+ * support/ops tool, so the layout favors a quick scan over the
+ * kind/trust/provenance conventions the recall-facing formatters above
+ * follow.
+ */
+export function formatDoctorReport(report: DoctorReport): string {
+  const lines: string[] = [];
+  lines.push(`dejavu doctor`);
+  lines.push(`version:  ${report.version}`);
+  lines.push(`runtime:  bun ${report.runtime.bun} · ${report.runtime.platform} · git ${report.runtime.git}`);
+  const size = report.database.sizeBytes !== null ? formatBytes(report.database.sizeBytes) : "unknown";
+  lines.push(`db:       ${report.database.path} (${size})`);
+  lines.push(`sqlite:   ${report.database.sqlite}`);
+  lines.push(
+    `fts:      ${report.database.ftsIndexed}/${report.database.ftsTotal} indexed` +
+      (report.database.ftsInSync ? "" : " — OUT OF SYNC"),
+  );
+
+  lines.push("");
+  lines.push(`scopes (${report.scopes.length}):`);
+  if (report.scopes.length === 0) {
+    lines.push(`  (none yet)`);
+  } else {
+    for (const s of report.scopes) {
+      lines.push(
+        `  ${s.scope}: ${s.slips} slips (${s.kept} kept, ${s.drafts} draft, ${s.expired} expired), ` +
+          `${s.handoffs} handoffs (${s.activeHandoffs} active), ${s.anchoredSlips} anchored`,
+      );
+    }
+  }
+
+  lines.push("");
+  lines.push(`current scope: ${report.currentScope.scope} (${report.currentScope.source})`);
+  const session = report.currentScope.session;
+  lines.push(
+    `  session: ${session.id}` +
+      (session.claimed
+        ? ` (claimed by ${session.harness}, ${Math.round((session.ageMs ?? 0) / 1000)}s old)`
+        : " (per-process)"),
+  );
+  const anchors = report.currentScope.anchors;
+  lines.push(
+    `  anchors: ${anchors.total} total — ${anchors.verified} verified, ${anchors.drifted} drifted, ` +
+      `${anchors.orphaned} orphaned, ${anchors.unknown} unknown`,
+  );
+
+  lines.push("");
+  lines.push(
+    report.warnings.length > 0
+      ? `warnings:\n${report.warnings.map((w) => `  - ${w}`).join("\n")}`
+      : `warnings: none`,
+  );
+
+  return lines.join("\n");
 }
