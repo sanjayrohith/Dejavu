@@ -308,3 +308,82 @@ describe("selecting kept memory by trust", () => {
     s.close();
   });
 });
+
+describe("scopeCounts", () => {
+  test("empty database reports no scopes", () => {
+    const s = new Storage({ path: ":memory:" });
+    expect(s.scopeCounts()).toEqual([]);
+    s.close();
+  });
+
+  test("breaks slip state down per scope, unlike counts()", () => {
+    const s = new Storage({ path: ":memory:" });
+    s.insertSlip(makeSlip({ scope: "repo:alpha", state: "kept", keptAt: Date.now() }));
+    s.insertSlip(makeSlip({ scope: "repo:alpha", state: "draft" }));
+    s.insertSlip(makeSlip({ scope: "repo:alpha", state: "expired", expiredAt: Date.now() }));
+    s.insertSlip(makeSlip({ scope: "repo:beta", state: "kept", keptAt: Date.now() }));
+
+    const rows = s.scopeCounts();
+    expect(rows.map((r) => r.scope)).toEqual(["repo:alpha", "repo:beta"]); // sorted
+
+    const alpha = rows.find((r) => r.scope === "repo:alpha")!;
+    expect(alpha).toMatchObject({ slips: 3, kept: 1, drafts: 1, expired: 1 });
+
+    const beta = rows.find((r) => r.scope === "repo:beta")!;
+    expect(beta).toMatchObject({ slips: 1, kept: 1, drafts: 0, expired: 0 });
+    s.close();
+  });
+
+  test("counts handoffs and active handoffs per scope", () => {
+    const s = new Storage({ path: ":memory:" });
+    const now = Date.now();
+    s.insertSlip(makeSlip({ scope: "repo:alpha", state: "kept", keptAt: now }));
+    s.insertHandoff({
+      id: ulid(now),
+      sessionId: "S1",
+      authoredBy: "test",
+      scope: "repo:alpha",
+      summary: "active one",
+      kept: [],
+      next: [],
+      status: "active",
+      automatic: false,
+      createdAt: now,
+      resolvedAt: null,
+    });
+    s.insertHandoff({
+      id: ulid(now + 1),
+      sessionId: "S2",
+      authoredBy: "test",
+      scope: "repo:alpha",
+      summary: "resolved one",
+      kept: [],
+      next: [],
+      status: "completed",
+      automatic: false,
+      createdAt: now,
+      resolvedAt: now,
+    });
+
+    const alpha = s.scopeCounts().find((r) => r.scope === "repo:alpha")!;
+    expect(alpha.handoffs).toBe(2);
+    expect(alpha.activeHandoffs).toBe(1);
+    s.close();
+  });
+
+  test("counts distinct anchored slips per scope, not anchor rows", () => {
+    const s = new Storage({ path: ":memory:" });
+    const now = Date.now();
+    const slip = makeSlip({ scope: "repo:alpha", state: "kept", keptAt: now });
+    s.insertSlip(slip);
+    // Two anchors on the same slip must still count as one anchored slip.
+    s.insertAnchor({ slipId: slip.id, path: "src/a.ts", symbol: null, line: null, blobSha: "x".repeat(40), commit: null, createdAt: now });
+    s.insertAnchor({ slipId: slip.id, path: "src/b.ts", symbol: null, line: null, blobSha: "y".repeat(40), commit: null, createdAt: now });
+    s.insertSlip(makeSlip({ scope: "repo:beta", state: "kept", keptAt: now }));
+
+    const rows = s.scopeCounts();
+    expect(rows.find((r) => r.scope === "repo:alpha")!.anchoredSlips).toBe(1);
+    expect(rows.find((r) => r.scope === "repo:beta")!.anchoredSlips).toBe(0);
+    s.close();
+  });
+});

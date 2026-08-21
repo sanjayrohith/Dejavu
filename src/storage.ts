@@ -1000,4 +1000,81 @@ export class Storage {
     ).n;
     return { slips: total, kept, drafts, handoffs, messages, pending };
   }
+
+  /**
+   * Per-scope rollup across the whole database — every repository scope
+   * this file has ever seen memory from, not just one caller's current
+   * scope. `counts()` above is deliberately unscoped; this is the first
+   * place that breaks it down by scope, for `dejavu doctor`.
+   *
+   * Three simple grouped queries merged by scope key, the same "several
+   * small queries" style `counts()`/`health()` already use rather than
+   * one large join.
+   */
+  scopeCounts(): ScopeCounts[] {
+    const bySlip = new Map<string, { slips: number; kept: number; drafts: number; expired: number }>();
+    for (const row of this.db
+      .prepare(
+        `SELECT scope,
+           COUNT(*) AS slips,
+           SUM(CASE WHEN state = 'kept' THEN 1 ELSE 0 END) AS kept,
+           SUM(CASE WHEN state = 'draft' THEN 1 ELSE 0 END) AS drafts,
+           SUM(CASE WHEN state = 'expired' THEN 1 ELSE 0 END) AS expired
+         FROM slips GROUP BY scope`,
+      )
+      .all() as Array<{ scope: string; slips: number; kept: number; drafts: number; expired: number }>) {
+      bySlip.set(row.scope, row);
+    }
+
+    const byHandoff = new Map<string, { handoffs: number; activeHandoffs: number }>();
+    for (const row of this.db
+      .prepare(
+        `SELECT scope,
+           COUNT(*) AS handoffs,
+           SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_handoffs
+         FROM handoffs GROUP BY scope`,
+      )
+      .all() as Array<{ scope: string; handoffs: number; active_handoffs: number }>) {
+      byHandoff.set(row.scope, { handoffs: row.handoffs, activeHandoffs: row.active_handoffs });
+    }
+
+    const byAnchor = new Map<string, number>();
+    for (const row of this.db
+      .prepare(
+        `SELECT s.scope AS scope, COUNT(DISTINCT a.slip_id) AS anchored
+         FROM anchors a JOIN slips s ON s.id = a.slip_id
+         GROUP BY s.scope`,
+      )
+      .all() as Array<{ scope: string; anchored: number }>) {
+      byAnchor.set(row.scope, row.anchored);
+    }
+
+    const scopes = new Set([...bySlip.keys(), ...byHandoff.keys()]);
+    return [...scopes].sort().map((scope) => {
+      const s = bySlip.get(scope) ?? { slips: 0, kept: 0, drafts: 0, expired: 0 };
+      const h = byHandoff.get(scope) ?? { handoffs: 0, activeHandoffs: 0 };
+      return {
+        scope,
+        slips: s.slips,
+        kept: s.kept,
+        drafts: s.drafts,
+        expired: s.expired,
+        handoffs: h.handoffs,
+        activeHandoffs: h.activeHandoffs,
+        anchoredSlips: byAnchor.get(scope) ?? 0,
+      };
+    });
+  }
+}
+
+/** One repository scope's counts, as reported by {@link Storage.scopeCounts}. */
+export interface ScopeCounts {
+  scope: string;
+  slips: number;
+  kept: number;
+  drafts: number;
+  expired: number;
+  handoffs: number;
+  activeHandoffs: number;
+  anchoredSlips: number;
 }
