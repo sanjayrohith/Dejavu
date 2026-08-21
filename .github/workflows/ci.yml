@@ -11,7 +11,18 @@ permissions:
 
 jobs:
   release-gate:
-    runs-on: ubuntu-latest
+    # worktree.ts and anchors.ts shell out to git and read .git/HEAD
+    # directly — exactly the code most likely to behave differently per
+    # platform. Linux and macOS only for now: both are POSIX, and this
+    # matrix has never run before, so nothing here is actually verified
+    # against Windows yet. Add windows-latest as its own change once
+    # someone has looked at what breaks, rather than folding an unverified
+    # platform into what was otherwise a zero-risk restoration.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
