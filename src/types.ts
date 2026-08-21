@@ -272,6 +272,22 @@ export interface TouchingResult {
   hits: RecallHit[];
 }
 
+/**
+ * A write-time suggestion that new text overlaps an already-kept slip.
+ *
+ * Advisory only. Nothing about finding a suggestion blocks or alters the
+ * write it was computed for — the caller decides whether to link a
+ * supersession, write anyway, or ignore it.
+ */
+export interface DuplicateSuggestion {
+  /** The existing kept slip the new text overlaps with. */
+  slip: Slip;
+  /** Token-Jaccard overlap between the new text and `slip.text`, 0..1. */
+  overlap: number;
+  /** `duplicate` — near-identical text. `related` — strong topical overlap. */
+  kind: "duplicate" | "related";
+}
+
 /** Retrieval receipt without duplicated memory text, used for real behavior evals. */
 export type RecallAssessment = "useful" | "wrong" | "missed" | "no_memory_needed";
 
