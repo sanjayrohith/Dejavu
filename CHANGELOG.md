@@ -6,6 +6,10 @@ All notable changes to Dejavu are documented here.
 
 ### Added
 
+- Write-time duplicate detection: `remember()`, `dejavu remember`, and the MCP `remember` tool now check new text against already-kept memory and name it when the text looks like a near-duplicate or strongly overlaps an existing kept slip, suggesting a `supersedes` link instead of leaving two unlinked copies. Advisory only — the write happens either way, and nothing is linked automatically.
+- `Dejavu.findDuplicate(text)` and the `DuplicateSuggestion` type.
+- `src/duplicates.ts`: token-Jaccard overlap scoring against a small local stopword list, pure and DB-free.
+
 - `dejavu eval --replay`: re-runs every recorded retrieval through the real pipeline, as of the instant it was served, and diffs the ids against what came back then. Needs nothing from any agent. `--json` for scripting, `--limit=N` to cap.
 - Point-in-time reconstruction: an optional `asOf` on the scoped storage queries and on `recall`, `touching`, and `orientation`. Append-only slips, handoffs, and links make state at a past instant derivable without a journal.
 - `src/replay.ts` and the `ReplayReport` type.
@@ -42,6 +46,7 @@ All notable changes to Dejavu are documented here.
 
 ### Safety
 
+- Duplicate suggestions are advisory only: finding one never blocks or alters the write it was computed for, and nothing is linked automatically — the caller decides.
 - A replayed retrieval records no receipt, so replay cannot grow the corpus it is measuring.
 - A replayed retrieval does not check anchor drift, because the working tree at a past instant is not recoverable, and orientation does not read today's tree when composing as of a past instant.
 - Replay is scoped exactly the way retrieval is: it never touches another repository's receipts.

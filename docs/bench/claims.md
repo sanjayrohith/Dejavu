@@ -31,6 +31,8 @@ Strong claims require runnable evidence. Unit tests establish implementation beh
 | Anchor drift does not change relevance, trust, or ranking. | Supported | ordering/score/trust invariance fixture in `test/anchors-recall.test.ts` | Holds by construction; revisit only if an eval earns drift as a ranking input. |
 | Anchored memory reduces acting on stale notes. | Hypothesis | none yet | Assessed real recalls where a drifted hit was marked `wrong`, versus the same memory unanchored. |
 | Reverse lookup by file surfaces memory a query would have missed. | Hypothesis | none yet | Compare `touching(diff paths)` against `recall` on the same task fixtures. |
+| Write-time duplicate detection surfaces near-duplicate or strongly overlapping kept memory before a new slip is written, on the CLI and MCP `remember` paths alike. | Supported | `test/duplicates.test.ts` (pure overlap scoring), `test/duplicates-remember.test.ts` (scope isolation, kept-only comparison), `test/mcp.test.ts` duplicate-suggestion cases | — |
+| A duplicate suggestion changes what an agent actually does — link a supersession versus writing an unlinked copy anyway. | Hypothesis | none yet | Assessed real `remember` calls where a suggestion fired, versus the rate of unlinked near-duplicates before this shipped. |
 | Dejavu retrieves the eight lexical smoke memories. | Supported, narrow | `bench/recall.ts`, `docs/bench/latest.txt` | Expand to 100+ real and paraphrased cases. |
 | Specific tool wording should improve appropriate recall. | Proxy-supported | `bench/behavior/run.ts`, `docs/bench/behavior-latest.md` | Baseline-vs-Dejavu agent transcripts. |
 | Structured handoffs may improve continuation. | Proxy-supported hypothesis | behavioral bench plus loop 4 c3 | Controlled multi-model A/B. |
