@@ -17,7 +17,7 @@ describe("release metadata", () => {
       "docs/shared-memory.md",
       "docs/shared-memory-implementation-contract.md",
       "docs/shared-security-review.md",
-      "LICENSE",
+      "LICENSE.md",
     ]));
   });
 });

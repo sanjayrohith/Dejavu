@@ -133,8 +133,8 @@ async function cmdInit(): Promise<void> {
   console.log(`
 Wire dejavu into your MCP client. Tool descriptions are the spec — no SKILL.md, no AGENTS.md.
 
-If you ran this via 'bunx github:sanjayrohith/Dejavu init', the MCP server is reachable
-the same way: 'bunx github:sanjayrohith/Dejavu mcp'. If you cloned, use the local path.
+If you ran this via 'bunx @sanjayrohith/dejavu init', the MCP server is reachable
+the same way: 'bunx @sanjayrohith/dejavu mcp'. If you cloned, use the local path.
 
 Claude Code (~/.config/claude-code/mcp.json):
 
@@ -142,7 +142,7 @@ Claude Code (~/.config/claude-code/mcp.json):
     "mcpServers": {
       "dejavu": {
         "command": "bunx",
-        "args": ["github:sanjayrohith/Dejavu", "mcp"]
+        "args": ["@sanjayrohith/dejavu", "mcp"]
       }
     }
   }
@@ -152,7 +152,7 @@ OpenCode (~/.config/opencode/opencode.jsonc):
   "mcp": {
     "dejavu": {
       "type": "local",
-      "command": ["bunx", "github:sanjayrohith/Dejavu", "mcp"]
+      "command": ["bunx", "@sanjayrohith/dejavu", "mcp"]
     }
   }
 
@@ -162,12 +162,12 @@ pi (~/.pi/agent/mcp.json):
     "mcpServers": {
       "dejavu": {
         "command": "bunx",
-        "args": ["github:sanjayrohith/Dejavu", "mcp"]
+        "args": ["@sanjayrohith/dejavu", "mcp"]
       }
     }
   }
 
-(Cloned the repo instead? Replace 'bunx github:sanjayrohith/Dejavu' with
+(Cloned the repo instead? Replace 'bunx @sanjayrohith/dejavu' with
  'bun run ${import.meta.dir}/cli.ts' in any of the above.)
 `);
 }

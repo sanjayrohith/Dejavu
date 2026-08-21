@@ -9,10 +9,22 @@ files in this repository (the "Software") are the exclusive property of
 Sanjay Rohith (the "Owner"). All rights not expressly granted in this
 license are reserved by the Owner.
 
-2. No License to Use, Copy, or Distribute
+2. License to Use
 
-Except as expressly permitted under Section 3 (Contributions) or with the
-Owner's prior written permission, no person or entity may:
+Subject to the restrictions in this license, the Owner grants you a
+worldwide, royalty-free, non-exclusive, non-transferable license to
+download, install, and run the Software, unmodified, for your own
+internal purposes (personal or within your organization). This license
+does not grant any right to redistribute, sublicense, or otherwise make
+the Software available to third parties, except by pointing them to the
+official distribution channels (the official repository or package
+registry entry).
+
+3. No License to Copy, Modify, or Distribute
+
+Except as expressly permitted under Section 2 (License to Use) or
+Section 4 (Contributions), or with the Owner's prior written permission,
+no person or entity may:
 
   a. copy, reproduce, or redistribute the Software, in whole or in part;
   b. sell, sublicense, rent, lease, or otherwise commercialize the
@@ -31,14 +43,14 @@ Viewing the source code in this public repository does not grant any of
 the rights listed above. Merely being able to read the code is not
 permission to use it.
 
-3. Contributions
+4. Contributions
 
 The Owner welcomes contributions in the form of GitHub Issues and Pull
 Requests submitted to the official repository.
 
   a. By submitting a Pull Request, Issue, patch, or any other content to
      this repository ("Contribution"), you agree to these terms in full,
-     including this Section 3.
+     including this Section 4.
   b. You grant the Owner a perpetual, worldwide, irrevocable,
      royalty-free, exclusive license to use, modify, relicense, and
      incorporate your Contribution into the Software, in whole or in
@@ -52,7 +64,7 @@ Requests submitted to the official repository.
      that you have the right to submit it under these terms.
   e. If you do not agree to these terms, do not submit a Contribution.
 
-4. No Warranty
+5. No Warranty
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -60,14 +72,14 @@ FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL
 THE OWNER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
 FROM THE USE OF, OR INABILITY TO USE, THE SOFTWARE.
 
-5. Termination
+6. Termination
 
 Any use of the Software in violation of this license automatically
 terminates any permission granted to you under it. The Owner reserves the
 right to pursue any remedy available under applicable law for
 unauthorized use, copying, or distribution of the Software.
 
-6. Contact
+7. Contact
 
 For licensing inquiries or permission requests beyond the scope of this
 license, contact the Owner at sanjayrohith1802@gmail.com.

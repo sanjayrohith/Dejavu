@@ -202,9 +202,21 @@ Dejavu currently requires [Bun](https://bun.sh).
 
 ```bash
 # Add and initialize
+bun add @sanjayrohith/dejavu
+bunx @sanjayrohith/dejavu init
+```
+
+<details>
+<summary><b>Prefer to install straight from GitHub?</b></summary>
+
+<br/>
+
+```bash
 bun add github:sanjayrohith/Dejavu
 bunx github:sanjayrohith/Dejavu init
 ```
+
+</details>
 
 <details>
 <summary><b>Prefer to clone the repo?</b></summary>
@@ -231,7 +243,7 @@ bun run src/cli.ts init
   "mcpServers": {
     "dejavu": {
       "command": "bunx",
-      "args": ["github:sanjayrohith/Dejavu", "mcp"]
+      "args": ["@sanjayrohith/dejavu", "mcp"]
     }
   }
 }
